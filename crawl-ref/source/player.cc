@@ -1136,13 +1136,13 @@ int player_mp_regen()
 {
     int regen_amount = 7 + you.max_magic_points / 2;
 
-    int multiplier = 100;
     if (you.get_mutation_level(MUT_MANA_REGENERATION))
-        multiplier += 100;
-    if (you.props[MANA_REGEN_AMULET_ACTIVE].get_int() == 1)
-        multiplier += 50;
+        regen_amount *= 2;
 
-    return regen_amount * multiplier / 100;
+    if (you.props[MANA_REGEN_AMULET_ACTIVE].get_int() == 1)
+        regen_amount += 25;
+
+    return regen_amount;
 }
 
 // Amulet of regeneration needs to be worn while at full health before it begins
@@ -6547,7 +6547,7 @@ bool player::corrode_equipment(const char* corrosion_source, int degree)
     int prev_corr = props["corrosion_amount"].get_int();
     bool did_corrode = false;
     for (int i = 0; i < degree; i++)
-        if (!x_chance_in_y(prev_corr, prev_corr + 9))
+        if (!x_chance_in_y(prev_corr, prev_corr + 7))
         {
             props["corrosion_amount"].get_int()++;
             prev_corr++;

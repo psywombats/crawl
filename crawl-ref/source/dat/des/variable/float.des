@@ -3997,59 +3997,55 @@ ENDMAP
 
 NAME: gammafunk_sealed_library
 TAGS: no_monster_gen no_trap_gen
-DEPTH: Crypt, D:8-, Depths, Elf, Snake, Zot
+DEPTH: Crypt, D:12-, Depths, Elf, Snake, Zot
 ORIENT: float
-ITEM: any book
-ITEM: magical staff / ring of magical power / ring of wizardry \
-      / ring of intelligence / amulet of mana regeneration \
-      / amulet of guardian spirit / w:5 crystal ball of energy
-ITEM: any jewellery good_item / robe good_item / cloak good_item \
-      / scarf good_item / hat good_item, any manual
+ITEM: any book, any manual, any jewellery good_item
+ITEM: robe good_item / cloak good_item / scarf good_item \
+      pair of boots good_item / hat good_item
 # Do this nsubst now so some branches can adjust monster placement.
-NSUBST: ' = 2 = d2 / 2, 2 = 2=112 / 6=2 / 3=3 / 4=23.. / ., 4 = 1=4 / 4...
+NSUBST: 4 = 1:4 / 2=433 / 2=53 / 3, 3 = 3:3 / 3=3222 / 2
+NSUBST: ' = 1=d2 / 2, 2 = 2=211. / 6=2 / 4=2... / .
+# Monster glyph counts after these nsubst:
+# 1:0-2 (ave 1.0), 2:6-12 (ave 7.5), 3:3-6 (ave 3.75), 4:1-3 (ave 1.66)
+# 5:0-2 (ave 1)
 : if you.in_branch("Crypt") then
 MONS: phantasmal warrior
 MONS: necromancer / vampire mage / vampire knight / deep elf death mage \
       / eidolon
 MONS: revenant / ancient champion / lich, ancient lich
+SUBST: 4 = 23, 5 = 4
 : elseif you.in_branch("D") then
 MONS: eye of draining
 MONS: boggart / kobold demonologist / deep elf mage / tengu conjurer
 MONS: wizard / necromancer / orc sorcerer / ogre mage
 MONS: deep elf annihilator / deep troll earth mage / sphinx / tengu reaver
-:   if you.depth() <= 11 then
-SUBST: 4 = 3334
-:   else
-SUBST: 4 = 34
-:   end
+SUBST: 4 = 23, 5 = 4
 : elseif you.in_branch("Depths") then
-MONS: floating eye, boggart / ogre mage / wizard / necromancer
+MONS: floating eye / phantasmal warrior
+MONS: boggart / ogre mage / wizard / necromancer
 MONS: deep elf sorcerer / deep elf annihilator / deep elf demonologist \
-      / deep elf elementalist / deep elf death mage / deep troll earth mage \
-      / spriggan air mage / vampire mage
-MONS: sphinx / tengu reaver / fire giant / frost giant, titan / ancient lich
+      / deep elf death mage / deep troll earth mage / spriggan air mage \
+      / vampire mage / hell knight
+MONS: sphinx / tengu reaver / lich / fire giant / frost giant
+MONS: titan / ancient lich
 : elseif you.in_branch("Elf") then
-MONS: water elemental, deep elf mage / w:2 orc sorcerer
+MONS: water elemental / shapeshifter, deep elf mage / w:1 orc sorcerer
 MONS: deep elf sorcerer / deep elf annihilator / deep elf demonologist \
-      / deep elf elementalist / deep elf death mage
-SUBST: 4 = 3
+      / deep elf death mage
+MONS: glowing shapeshifter
+SUBST: 4 = 23, 5 = 4
 : elseif you.in_branch("Snake") then
 MONS: mana viper / guardian serpent
 MONS: naga mage / naga ritualist / salamander mystic, nagaraja
-SUBST: 3 = 23, 4 = 3
-: elseif you.in_branch("Vaults") then
-MONS: phantasmal warrior, boggart / ogre mage / wizard / necromancer
-MONS: deep elf sorcerer / deep elf annihilator / deep elf demonologist \
-      / deep elf elementalist, deep elf death mage / deep troll earth mage \
-      / spriggan air mage / vampire mage / hell knight
-MONS: sphinx / tengu reaver / fire giant / frost giant, titan / ancient lich
+SUBST: 5 = 4, 4 = 23
 : elseif you.in_branch("Zot") then
-MONS: ghost moth
+MONS: ghost moth / death cob / curse toe
 MONS: draconian annihilator / draconian scorcher / draconian shifter \
       / draconian knight / draconian monk / draconian stormcaller
-MONS: ancient lich
-SUBST: 3 = 2, 4 = 3
+MONS: ancient lich, orb of fire
+SUBST: 3 = 2, 4 = 3, 5 = 4
 : end
+KFEAT: _ = altar_sif_muna / altar_vehumet
 SHUFFLE: efg
 NSUBST: R = R / tGT
 MARKER: P = lua:transp_loc("sealed_library_entry")
@@ -4057,23 +4053,25 @@ MARKER: Q = lua:transp_dest_loc("sealed_library_entry")
 MARKER: R = lua:transp_loc("sealed_library_exit")
 MARKER: S = lua:transp_dest_loc("sealed_library_exit")
 MAP
-  ccccccccccccccccccccccc
-  c2.'c.c'c.c'c.c'c....Rc
-  cG$..............2b4..c
-  cT*4bb2bb2bb2.....bb..c
-  cG$..........bbb.....Gc
-  c2...Gc'c.Tbbb.....b2.c
-  ccc+ccccccbb...bbbbb..c
-....nden...c......G.G.$tc
-@S.Pndfn.Q.+.........2|Uc
-....ndgn...c......G.G.$tc
-  ccc+ccccccbb...bbbbb..c
-  c2...Gc'c.Tbbb.....b2.c
-  cG$..........bbb.....Gc
-  cT*4bb2bb2bb2.....bb..c
-  cG$..............2b4..c
-  c2.'c.c'c.c'c.c'c....Rc
-  ccccccccccccccccccccccc
+ ccccccccccccccccccccccccc
+ ccccccccccccccccccccccccc
+ ccc.3c'c'c'c'c'c'c3..$Rcc
+ ccG4...............b4$*cc
+ ccT..bb2bb2bb2.....bb..cc
+ ccG4..........bbb.....Gcc
+ cccc3.Gc'c2Tbbb...2.b3.cc
+ cccc+ccccccbb...bbbbb..cc
+...nnedUnG..c.....G.G.$tcc
+@SPnnfd_nQ..+........4|Ucc
+...nngdUnG..c.....G.G.$tcc
+ cccc+ccccccbb...bbbbb..cc
+ cccc3.Gc'c2Tbbb...2.b3.cc
+ ccG4..........bbb.....Gcc
+ ccT..bb2bb2bb2.....bb..cc
+ ccG4...............b4$*cc
+ cc..3c'c'c'c'c'c'c3..$Rcc
+ ccccccccccccccccccccccccc
+ ccccccccccccccccccccccccc
 ENDMAP
 
 NAME:   gammafunk_jiyva_shrine
@@ -4081,7 +4079,7 @@ TAGS:   no_monster_gen no_trap_gen
 DEPTH:  D:8-, Depths
 ORIENT: float
 KFEAT:  _ = altar_jiyva
-NSUBST: " = R / '
+NSUBST: " = R / ', * = 3:| / 2:* / $
 : if you.in_branch("Depths") then
 MONS: slime creature / acid blob / azure jelly / death ooze
 MONS: floating eye / glowing orange brain / shining eye / golden eye band \
@@ -4108,19 +4106,19 @@ MARKER: S = lua:transp_dest_loc("jiyva_chamber_exit")
 COLOUR: c = green
 COLOUR: n = lightgreen
 MAP
-   .........
-  ..ccccccc..
- ..cc'ccc'cc..
- .cc''c.c''cc.
- .c''.....'"c.
-..ccc.$*|.ccc..
-@PnnQ.$_|..ccS@
-..ccc.$*|.ccc..
- .c''.....'"c.
- .cc''c.c''cc.
- ..cc'ccc'cc..
-  ..ccccccc..
-   .........
+    ccccccccc
+   ccccccccccc
+  cccc'ccc'cccc
+  ccc''c.c''ccc
+  cc''.....'"cc
+ .cccc.***.cccc.
+@PnnnQ.*_*..nnnS@
+ .cccc.***.cccc.
+  cc''.....'"cc
+  ccc''c.c''ccc
+  cccc'ccc'cccc
+   ccccccccccc
+    ccccccccc
 ENDMAP
 
 NAME:   gammafunk_beogh_shrine
@@ -4160,21 +4158,21 @@ MARKER: Q = lua:transp_dest_loc("beogh_ambush_entry")
 MARKER: R = lua:transp_loc("beogh_ambush_exit")
 MARKER: S = lua:transp_dest_loc("beogh_ambush_exit")
 MAP
-  .............
- ..ccccccccccc..
- .cc...1R1..1cc.
- .c...ccccc.11c.
- .c...3c3c3...c.
- .c.c."13""3c.c.
-..c.cc*I$I"cc1c..
-@PnQn|||_"33cRcS@
-..c.cc*I$I"cc1c..
- .c.c."13""3c.c.
- .c...3c3c3...c.
- .c...ccccc.11c.
- .cc...1R1..1cc.
- ..ccccccccccc..
-  .............
+   ccccccccccccc
+  ccccccccccccccc
+  ccc...1R1..1ccc
+  cc...ccccc.11cc
+  cc...3c3c3...cc
+  cc.c."13""3c.cc
+ .cc.cc*I$I"cc1cc.
+@PnnQn|||_"33cRccS@
+ .cc.cc*I$I"cc1cc.
+  cc.c."13""3c.cc
+  cc...3c3c3...cc
+  cc...ccccc.11cc
+  ccc...1R1..1ccc
+  ccccccccccccccc
+   ccccccccccccc
 ENDMAP
 
 NAME:   gammafunk_corrupted_shrine
@@ -4213,23 +4211,23 @@ MARKER: S = lua:transp_dest_loc("corrupted_shrine_exit")
 COLOUR: bc = magenta
 COLOUR: n = lightmagenta
 MAP
- ......   ......
-.@.ccc.. ..cccc..
-..Pc.cc. .cc""cc.
-.ccn..c...cbb""c.
-.c..Q.cc.cc''b"c.
-.cc....ccc.''bcc.
-..ccc.......ccc..
- ...cc.$$$.cc...
-   ..c.*_*.c..
- ...cc.|||.cc...
-..ccc.......ccc..
-.ccb''.ccc.''bcc.
-.c"b''cc.cc''b"c.
-.c""bbc...cbb""c.
-.cc""cc. .cc""cc.
-..cccc.. ..ccccS.
- ......   ......@
+ cccccc.@.cccccc
+ccccccccPcccccccc
+ccc..nnn.ccc""ccc
+cc.Q..ccnccbb""cc
+cc....ccncc''b"cc
+ccc....cnc.''bccc
+ccccc.......ccccc
+ ccccc.$$$.ccccc
+   ccc.*_*.ccc
+ ccccc.|||.ccccc
+ccccc.......ccccc
+cccb''.cnc.''bccc
+cc"b''ccncc''b"cc
+cc""bbccnccbb""cc
+ccc""ccc.ccc""ccc
+ccccccccScccccccc
+ cccccc.@.cccccc
 ENDMAP
 
 NAME:   gammafunk_steamed_eel
@@ -4261,32 +4259,33 @@ ENDMAP
 NAME:   gammafunk_wand_slinger
 TAGS:   no_monster_gen no_trap_gen no_pool_fixup
 ORIENT: float
-DEPTH:  D:3-
+DEPTH:  D:3-13
 KPROP:  LM = no_tele_into
+KMASK:  LM = no_item_gen
 ITEM:   wand of flame
 ITEM:   wand of lightning / wand of iceblast / wand of acid
 ITEM:   wand of confusion / wand of disintegration / wand of paralysis \
         / wand of enslavement / wand of polymorph
 ITEM:   wand of clouds / wand of scattershot
+MONS: shadow imp, orc priest, kobold demonologist
+MONS: deep elf knight / fire crab / orc high priest / orc sorcerer
 KMONS:  p = plant
 KFEAT:  p = W
+KFEAT:  - = iron_grate
 : if you.depth() <= 5 then
-MONS: dart slug / shadow imp
-MONS: orc priest / w:5 kobold demonologist
-NSUBST: L = 1:1 / 1=1NN / N, M = 1:1 / 1=1NN / N, N = 2... / .
+NSUBST: L = 1:1 / 1=12N / N, M = 1:1 / 1=12N / N, N = 1:2 / 3..... / .
+SUBST: * = ., | = *
 # Always place one wand, and make it more likely to be flame
 SUBST: D = d:20 e f g
 : elseif you.depth() <= 8 then
-MONS: shadow imp / orc priest
-MONS: kobold demonologist
-MONS: deep elf knight, fire crab, orc high priest, orc sorcerer
-NSUBST: L = 1:1 / 2=1NN / N, M = 1:1 / 2=1NN / N, N = 2=2.. / 3..... / .
+NSUBST: L = 1:1 / 1:2 / 2=12N / N, M = 1:1 / 1:2 / 2=12N / N
+NSUBST: N = 1:3 / 1=3. / 4..... / .
+SUBST: | = .
 # 50% chance to place one, 50% chance to place two
 SHUFFLE: DEF / HJK
 : else
-MONS: orc priest / kobold demonologist
-MONS: deep elf knight, fire crab, orc high priest, orc sorcerer
-NSUBST: L = 2=1N / N, M = 2=1N / N, N = 2 / 2=2. / .
+NSUBST: L = 1:2 / 1:3 / 2=23N / N, M = 1:2 / 1:3 / 2=23N / N
+NSUBST: N = 1:4 / 2=4. / .
 # 25% chance to place one, 75% chance to place two
 SHUFFLE: DEF / HJK / HJK / HJK
 : end
@@ -4298,15 +4297,15 @@ MARKER: R = lua:transp_loc("wand_slinger_exit")
 MARKER: S = lua:transp_dest_loc("wand_slinger_exit")
 MAP
  .................
- .ccccccccccccccc.
- .cGpcLLLLLLLxWGc.
- .cp.cwwwwwwwc.pc.
-..c.Ec..WWW..c..c..
-@PnQD+..WtW..+*RcS@
-..c.Fc..WWW..c..c..
- .cp.cwwwwwwwc.pc.
- .cGpcMMMMMMMxWGc.
- .ccccccccccccccc.
+ .nnnnnnnnnnnnnnn.
+ .nGpnLLLLLLL-WGn.
+ .np.nwwwwwwwn.pn.
+..n.En..WWW..n*$n..
+@PnQD+..WtW..+|RnS@
+..n.Fn..WWW..n*$n..
+ .np.nwwwwwwwn.pn.
+ .nGpnMMMMMMM-WGn.
+ .nnnnnnnnnnnnnnn.
  .................
 ENDMAP
 
@@ -8655,14 +8654,21 @@ ENDMAP
 NAME: gammafunk_sealed_arena
 TAGS: no_monster_gen no_trap_gen
 DEPTH: Crypt, D:8-, Depths, Elf, Vaults, Zot
+ITEM:  any jewellery good_item
+ITEM:  cloak good_item / scarf good_item / helmet good_item / hat good_item \
+       / gloves good_item / pair of boots good_item
 KITEM: R = |
 MONS: orange crystal statue / obsidian statue
-: if you.in_branch("D") and you.depth() <= 11 then
-SUBST: 1 = 1...
+# In earlier Dungeon depths, one d item and remove 1/3 of the 9 spawns
+# on-average.  Elsewhere place one d item and one e item and don't reduce the 9
+# spawns.
+: if you.in_branch("D") and you.depth() < 12 then
+SUBST: 1 = 1..., 9 = 99., " = d, ' = $
 : elseif you.in_branch("D") then
 SUBST: 1 = 1.
 : end
-SUBST: 9 = 99., h : b., i : b., b : bcvx
+SUBST:  " = $, h : b., i : b., b : bcvx
+NSUBST: ' = d / e / $
 MARKER: P = lua:transp_loc("sealed_arena_entry")
 MARKER: Q = lua:transp_dest_loc("sealed_arena_entry")
 MARKER: R = lua:transp_loc("sealed_arena_exit")
@@ -8673,9 +8679,9 @@ MAP
  .nn9......nn.
  .nG.hi9ih.Gn.
  .n..ih.hi$*n.
-..n......8$|n..
-@Pn..Q.1..$RnS@
-..n......8$|n..
+..n9.....8'|n..
+@Pn..Q.1.."RnS@
+..n9.....8'|n..
  .n..ih.hi$*n.
  .nG.hi9ih.Gn.
  .nn9......nn.
@@ -8688,34 +8694,34 @@ TAGS: no_monster_gen no_trap_gen no_tele_into
 DEPTH: Crypt, D:$, Depths, Elf, Shoals, Spider, Snake, Swamp, Zot
 KMASK: ^ = no_item_gen
 ITEM: any randart jewellery
-KFEAT: ^ = known zot trap
 SHUFFLE: FGHI / JKLM
-NSUBST: D = ^ / ., E = ^ / ., I = . / B
-SUBST: FGH = ., JKLM = B, A = ^., B = ^^.
+NSUBST: D = ^ / ., E = ^ / ., I = . / "
+SUBST: FGH = ., JKLM = ", ' = ^., " = ^^.
+KFEAT: ^ = known zot trap
 MARKER: P = lua:transp_loc("its_a_trap_entry")
 MARKER: Q = lua:transp_dest_loc("its_a_trap_entry")
 MARKER: R = lua:transp_loc("its_a_trap_exit")
 MARKER: S = lua:transp_dest_loc("its_a_trap_exit")
 MAP
-      ..........
-     ..cccccccc..
-    ..cccccccccc...
- ....ccccDcc^ccccc......
- .cccccc.D....ccccccccc.
- .cccccB.c.ccc..ccccccc.
- .cc.AA.BcBI.0AB.cd^$nn.
- .ccAA.cBGHc.9AB.cA*Ann.
-..nn^..cFcBI.0AB^+|^$nn..
-@PnnQ.^.BBBc.8ABBcA*RnnS@
-..nn^..cJcBM.0AB^+|^$nn..
- .ccAA.cBKLc.9AB.cA*Ann.
- .cc.AA.BcBM.0AB.c|^dnn.
- .cccccB.c.ccc..ccccccc.
- .cccccc.E....ccccccccc.
- ....ccccEcc^ccccc......
-    ..cccccccccc...
-     ..cccccccc..
-      ..........
+       cccccccccc
+      cccccccccccc
+     ccccccccccccccc
+  ccccccccDcc^ccccccccccc
+  ccccccc.D....cccccccccc
+  cccccc".c.ccc..cccccccc
+  ccc.''."c"I.0'".cd^$ccc
+  ccc''.c"GHc.9'".c'*'nnn
+..nnn^..cFc"I.0'"^+|^$nnn..
+@PnnnQ.^."""c.8'""c'*RnnnS@
+..nnn^..cJc"M.0'"^+|^$nnn..
+  ccc''.c"KLc.9'".c'*'nnn
+  ccc.''."c"M.0'".c|^dccc
+  cccccc".c.ccc..cccccccc
+  ccccccc.E....cccccccccc
+  ccccccccEcc^ccccccccccc
+     ccccccccccccccc
+      cccccccccccc
+       cccccccccc
 ENDMAP
 
 NAME: gammafunk_dig_for_victory
@@ -8743,23 +8749,103 @@ MARKER: Q = lua:transp_dest_loc("dig_for_victory_entry")
 MARKER: R = lua:transp_loc("dig_for_victory_exit")
 MARKER: S = lua:transp_dest_loc("dig_for_victory_exit")
 MAP
-       ................
-       .cnnnnccccccccc.
-      ..cDDDDEEccccccc..
- ......ccDDDDEE--cm1ccc......
- .ccccccnnnnnnnnnmnnnncccccc.
- .c.....mmmmmmmmmmmmmmem*men.
- .c.....mmmmmmmmmmmmnmmmmmmn.
- .c.....mmmmmmmmmmmmmm*m$m$n.
+        ..@...
+        cnnnnccccccccc
+        cDDDDEEccccccc
+       ccDDDDEE--cm1ccc
+  ccccccnnnnnnnnnmnnnncccccc
+  c.....mmmmmmmmmmmmmmem*mec
+  c.....mmmmmmmmmmmmnmmmmmmn
+ .c.....mmmmmmmmmmmmmm*m$m$n
 ..n..>..mmnnnmmmmmmmnmmmmmmn..
 @PnQ....mmn1mmmmm1mmmm|mRm|nS@
 ..n..d..mmnnnmmmmmmmnmmmmmmn..
- .c.....mmmmmmmmmmmmmm*m$m$n.
- .c.....mmmmmmmmmmmmnmmmmmmn.
- .c.....mmmmmmmmmmmmmmem*men.
- .ccccccnnnnnnnnnmnnnncccccc.
- ......ccFFFFHH--cm1ccc......
-      ..cFFFFHHccccccc.
-       .cnnnnccccccccc.
-       ................
+ .c.....mmmmmmmmmmmmmm*m$m$n
+  c.....mmmmmmmmmmmmnmmmmmmn
+  c.....mmmmmmmmmmmmmmem*mec
+  ccccccnnnnnnnnnmnnnncccccc
+       ccFFFFHH--cm1ccc
+        cFFFFHHccccccc
+        cnnnnccccccccc
+        ..@...
+ENDMAP
+
+NAME:    emtedronai_trogs_sanctum
+TAGS:    no_monster_gen no_trap_gen no_tele_into no_item_gen
+DEPTH:   D:13-, Depths
+: if not you.unrands("necklace_of_bloodlust") then
+KITEM:   _ = necklace of bloodlust no_pickup
+: elseif not you.unrands("wrath_of_trog") then
+KITEM:   _ = wrath of trog no_pickup
+: else
+KITEM:   _ = nothing
+: end
+ITEM:    manual of armour w:30 / manual of fighting w:30 / \
+         manual of long blades / manual of axes / manual of maces & flails / \
+         manual of polearms / manual of dodging / manual of shields
+ITEM:    executioner's axe good_item no_pickup w:5 / \
+         battleaxe good_item randart no_pickup / \
+         broad axe good_item no_pickup / \
+         triple sword good_item no_pickup w:5 / \
+         great sword good_item randart no_pickup / \
+         double sword good_item no_pickup / \
+         great mace good_item no_pickup / \
+         evening star good_item no_pickup / \
+         bardiche good_item no_pickup w:5 / \
+         glaive good_item randart no_pickup / \
+         demon trident good_item no_pickup
+ITEM:    plate armour good_item randart w:20 no_pickup / \
+         crystal plate armour good_item no_pickup / \
+         chain mail good_item randart no_pickup
+ITEM:    potion of berserk rage ident:type
+SHUFFLE: def
+KPROP:   .$*def123456 = bloody w:5 / nothing
+: if you.in_branch("Depths") then
+MONS:    patrolling juggernaut
+MONS:    deep troll w:15 / spriggan berserker w:15 / stone giant / \
+         iron troll w:5 / ettin w:5
+MONS:    deep elf annihilator / deep elf demonologist / titan / boggart / \
+         deep elf sorcerer / spriggan air mage / lich / vampire mage
+: else
+MONS:    patrolling ettin / patrolling iron troll
+MONS:    troll w:15 / two-headed ogre w:15 / cyclops w:5 / deep troll w:5
+MONS:    ogre mage / wizard / deep elf mage / boggart / necromancer
+: end
+MONS:    generate_awake moth of wrath, deep troll earth mage
+KMONS:   6 = silent spectre
+: dgn.delayed_decay(_G, '\'`', 'human skeleton')
+KFEAT:   _ = altar_trog
+KFEAT:   - = iron_grate
+FTILE:   ` = floor_rough_lightred
+MARKER:  ` = lua:fog_machine { \
+               cloud_type = "flame", pow_min = 10, pow_max = 10, delay = 10, \
+               size = 1, walk_dist = 0, start_clouds = 1, excl_rad = 0 }
+MARKER:  P = lua:transp_loc("trogsanc_entry")
+MARKER:  Q = lua:transp_dest_loc("trogsanc_entry")
+MARKER:  6 = lua:transp_loc("trogsanc_exit")
+MARKER:  S = lua:transp_dest_loc("trogsanc_exit")
+MAP
+vvvvvvvvvvvvvvvvvvvvvvv
+vvvvvvvvvvvvvvvvvvvvvvv
+vvvvvvvvvvvvvvvvvvvvvvv
+vvvvvvvvvvvvvvvvvvvvvvv
+vvvvvvvv4vvvvv4vvvvvvvv
+vvvvvvvv-vvvvv-vvvvvvvv
+vvvvvvv..+.Q.+..vvvvvvv
+vvvvvv...+.'.+...vvvvvv
+vvvvv....v.g.v....vvvvv
+vvv`-..v-vnvnv-v..-`vvv
+vvvvv..-4vv6vv4-..vvvvv
+vvv4-22v-vn=nv-v22-4vvv
+vvv3v...$$e_f$$...v3vvv
+vvv3-....$*d*$....-3vvv
+vvv3v..Y..***..Y..v3vvv
+vvv5-......1......-5vvv
+vvvvv22.........22vvvvv
+vvvvv-v-vvnnnvv-v-vvvvv
+vvvvv4v`vvnnnvv`v4vvvvv
+vvvvvvvvv..P..vvvvvvvvv
+vvvvvvv4n..S..n4vvvvvvv
+      vvv.....vvv
+           @
 ENDMAP

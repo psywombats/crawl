@@ -4052,3 +4052,64 @@ MAP
  ..nnnnnnnnn..
   ...........
 ENDMAP
+
+################################################################################
+NAME:       psy_uskayaw_demo
+TAGS:       temple_overflow_1 temple_overflow_uskayaw
+ORIENT:     float
+KFEAT:      L2 = W
+KFEAT:      U = altar_uskayaw
+KFEAT:      N!? = c
+: if you.absdepth() < 6 then
+KMONS:      1L = rat / nothing w:3
+KMONS:      2 = river rat
+: else
+KMONS:      1L = goblin ; nothing / nothing w:3
+KMONS:      2 = hobgoblin
+: end
+{{
+    function callback.uskayaw_smym(data, triggerable, triggerer, marker, ev)
+      if not dgn.persist.uskayaw_smym_triggered and you.god() == "Uskayaw" then
+        crawl.god_speaks("Uskayaw", 'Uskayaw says "Welcome, mortal! Now... ' ..
+                                    'Let me see you dance!');
+        for slave in iter.slave_iterator("to_door", 1) do
+          dgn.terrain_changed(slave.x, slave.y, "closed_door", false)
+        end
+        for slave in iter.slave_iterator("to_floor", 1) do
+          dgn.terrain_changed(slave.x, slave.y, "floor", false)
+        end
+        for slave in iter.slave_iterator("to_glass", 1) do
+          dgn.terrain_changed(slave.x, slave.y, "clear_stone_wall", false)
+        end
+        crawl.god_speaks("Uskayaw", "A pounding rhythm fills the dungeon!")
+        dgn.persist.uskayaw_smym_triggered = true
+      end
+    end
+
+    dgn.persist.uskayaw_smym_triggered = false
+    local los_marker = TriggerableFunction:new {
+      func="callback.uskayaw_smym",
+      repeated=true
+    }
+    los_marker:add_triggerer(DgnTriggerer:new {type="player_los"})
+    lua_marker('U', los_marker)
+    lua_marker('!', props_marker {to_floor=1})
+    lua_marker('?', props_marker {to_door=1})
+    lua_marker('N', props_marker {to_glass=1})
+}}
+MAP
+xxxxxxxxxxxxx
+xcccccccccccx
+xc2LLLLLLL2cx
+xcLL11111LLcx
+xcL1111111Lcx
+xc111111111cx
+xc11$111$11cx
+xc111c!c111cx
+xcL11?U?11Lcx
+xcL11c.c11Lcx
+xcLL$c.c$LLcx
+xccccc.cccccx
+xxxxxx.xxxxxx
+ENDMAP
+

@@ -1408,3 +1408,48 @@ x..<..x
 xx...xx
  xxxxx
 ENDMAP
+
+################################################################################
+# Boss behind bushes, can potentially gather loot without conflict
+NAME:       psy_plant_boss
+TAGS:       no_item_gen no_monster_gen no_pool_fixup
+ORIENT:     encompass
+KMONS:      P = plant
+KFEAT:      qe = W
+KMONS:      pq = plant / nothing 
+SUBST:      2 = 23
+KMONS:      1 = worm / bullfrog w:5
+KMONS:      2 = crocodile
+KMONS:      3 = Purgy, crocodile
+KITEM:      d = potion of curing / potion of heal wounds / potion of might w:5 \
+            potion of magic w:5 / any potion w:5
+KITEM:      e = scroll of identify / scroll of remove curse / any scroll
+COLOUR:     qe = lightgreen
+: sewer_setup(_G)
+WEIGHT:     50000
+MAP
+           ccccccc                  
+          ccqWWWqcc                 
+         ccqW...Wqcc                
+         cqW.ppp.Wqc                
+         cW.pPPPp.Wc                
+    ccc  cW.pP1Pp.Wc                
+    c<c  cW.pPPPp.Wc    ccc         
+    c.c ccW..ppp..Wcc   c<c         
+    c.cccW.........Wcc  cdc         
+  ccc.ccW...WWWWW...Wcc c.c         
+ ccqW.WW...WcccccW...Wccc.cccc      
+ccqW......Wcc   ccW...WWW.WWqcc     
+cqW......Wcc     ccW........Wqcc    
+cWp......Wc       ccW....D...Wqc    
+cW...A...Wc        cW..DPPPD..Wc    
+cWp......Wc    cccccW..PPdPP..Wccccc
+cqW.....WWc    ceWWWW.DPd2dPD.WWWWec
+ccqWp.pWqcc    cccccW..PPdPP..Wccccc
+ ccqWWWqcc         cW..DPPPD..Wc    
+  ccccccc          cqW...D...Wqc    
+                   ccqW.....Wqcc    
+                    ccqWWWWWqcc     
+                     ccccccccc      
+ENDMAP
+

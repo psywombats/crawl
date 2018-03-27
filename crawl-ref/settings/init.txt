@@ -82,3 +82,16 @@
 # include                 = 0.12_monster_glyphs.txt
 # include                 = 0.13_monster_glyphs.txt
 # include                 = 0.14_monster_glyphs.txt
+
+
+
+bindkey = [1]  CMD_MOVE_DOWN_LEFT
+bindkey = [2]  CMD_MOVE_DOWN
+bindkey = [3]  CMD_MOVE_DOWN_RIGHT
+bindkey = [4]  CMD_MOVE_LEFT
+bindkey = [6]  CMD_MOVE_RIGHT
+bindkey = [7]  CMD_MOVE_UP_LEFT
+bindkey = [8]  CMD_MOVE_UP
+bindkey = [9]  CMD_MOVE_UP_RIGHT
+
+bindkey = [`]  CMD_EXPLORE       

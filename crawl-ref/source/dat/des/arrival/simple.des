@@ -2029,3 +2029,42 @@ x.G.G.G.x
 x.......x
 xxxx+xxxx
 ENDMAP
+
+################################################################################
+NAME:       templatexx
+TAGS:       arrival no_rotate no_vmirror no_hmirror
+ORIENT:     float
+KFEAT:      ^ = known teleport trap
+RTILE:      p = wall_pebble
+RTILE:      q = wall_pebble_brown
+RTILE:      r = wall_pebble_blue
+RTILE:      s = wall_pebble_green
+RTILE:      u = wall_pebble_cyan
+RTILE:      y = wall_pebble_red
+RTILE:      z = wall_pebble_magenta
+RTILE:      D = wall_pebble_darkgray
+RTILE:      K = wall_pebble_lightblue
+RTILE:      L = wall_pebble_lightgreen
+RTILE:      M = wall_pebble_lightcyan
+RTILE:      N = wall_pebble_lightred
+RTILE:      Q = wall_pebble_lightmagenta
+RTILE:      R = wall_pebble_yellow
+RTILE:      S = wall_pebble_white
+KFEAT:      pqrsuyzDKLMNQRS = x
+MAP
+x@xxxxxxxxxxxxx
+x.GGG.........x
+x.G{G.........x
+x.............x
+x.............x
+x.............x
+x^..pqrsuyzD..x
+x.............x
+x.............x
+x.............x
+x^..KLMNQRS...x
+x.............x
+x.............x
+x.............x
+xxxxxxxxxxxxxxx
+ENDMAP

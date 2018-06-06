@@ -19,6 +19,7 @@
 #include "sound.h"
 #include "state.h"
 #include "stringutil.h"
+#include "tiles-build-specific.h"
 #include "unicode.h"
 #include "viewgeom.h"
 
@@ -378,7 +379,12 @@ GotoRegion get_cursor_region()
 {
     return _current_region;
 }
-#endif // USE_TILE_LOCAL
+
+void set_cursor_region(GotoRegion region)
+{
+    _current_region = region;
+}
+#endif // !USE_TILE_LOCAL
 
 coord_def cgetsize(GotoRegion region)
 {
@@ -407,10 +413,30 @@ void cscroll(int n, GotoRegion region)
 
 mouse_mode mouse_control::ms_current_mode = MOUSE_MODE_NORMAL;
 
-string unwrap_desc(string desc)
+mouse_control::mouse_control(mouse_mode mode)
+{
+    m_previous_mode = ms_current_mode;
+    ms_current_mode = mode;
+
+#ifdef USE_TILE_WEB
+    if (m_previous_mode != ms_current_mode)
+        tiles.update_input_mode(mode);
+#endif
+}
+
+mouse_control::~mouse_control()
+{
+#ifdef USE_TILE_WEB
+    if (m_previous_mode != ms_current_mode)
+        tiles.update_input_mode(m_previous_mode);
+#endif
+    ms_current_mode = m_previous_mode;
+}
+
+string unwrap_desc(string&& desc)
 {
     // Don't append a newline to an empty description.
-    if (desc == "")
+    if (desc.empty())
         return "";
 
     trim_string_right(desc);
@@ -424,7 +450,7 @@ string unwrap_desc(string desc)
         desc.erase(0, pos + 1);
         if (tag == "nowrap")
             return desc;
-        else if (desc == "")
+        else if (desc.empty())
             return "";
     }
 
@@ -549,7 +575,7 @@ void text_popup(const string& text, const wchar_t *caption)
     MessageBoxW(0, OUTW(text), caption, MB_OK);
 }
 #else
-# ifdef USE_CURSES
+#ifndef USE_TILE_LOCAL // is curses in use?
 
 /* [ds] This SIGHUP handling is primitive and far from safe, but it
  * should be better than nothing. Feel free to get rigorous on this.

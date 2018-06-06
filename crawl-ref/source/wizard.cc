@@ -176,7 +176,7 @@ static void _do_wizard_command(int wiz_command)
 
     case 'y': wizard_identify_all_items(); break;
     case 'Y': wizard_unidentify_all_items(); break;
-    // case CONTROL('Y'): break;
+    case CONTROL('Y'): wizard_suppress(); break;
 
     case 'z': wizard_cast_spec_spell(); break;
     // case 'Z': break;
@@ -193,7 +193,7 @@ static void _do_wizard_command(int wiz_command)
     case '(': wizard_create_feature(); break;
     // case ')': break;
 
-    // case '`': break;
+    case '`': debug_list_vacant_keys(); break;
     case '~': wizard_interlevel_travel(); break;
 
     case '-': wizard_get_god_gift(); break;
@@ -271,7 +271,20 @@ void handle_wizard_command()
     if (Options.wiz_mode == WIZ_NEVER)
         return;
 
-    if (!you.wizard)
+    if (you.suppress_wizard)
+    {
+        mprf(MSGCH_WARN, "Re-activating wizard mode.");
+        you.wizard = true;
+        you.suppress_wizard = false;
+        redraw_screen();
+        if (crawl_state.cmd_repeat_start)
+        {
+            crawl_state.cancel_cmd_repeat("Can't repeat re-activating wizard "
+                                          "mode.");
+        }
+        return;
+    }
+    else if (!you.wizard)
     {
         mprf(MSGCH_WARN, "WARNING: ABOUT TO ENTER WIZARD MODE!");
 
@@ -355,7 +368,7 @@ void enter_explore_mode()
     if (Options.explore_mode == WIZ_NEVER)
         return;
 
-    if (you.wizard)
+    if (you.wizard || you.suppress_wizard)
         handle_wizard_command();
     else if (!you.explore)
     {
@@ -393,9 +406,6 @@ int list_wizard_commands(bool do_redraw_screen)
 {
     // 2 columns
     column_composer cols(2, 44);
-    // Page size is number of lines - one line for --more-- prompt.
-    cols.set_pagesize(get_number_of_lines());
-
     cols.add_formatted(0,
                        "<yellow>Player stats</yellow>\n"
                        "<w>A</w>      set all skills to level\n"
@@ -495,7 +505,9 @@ int list_wizard_commands(bool do_redraw_screen)
 #ifdef DEBUG_DIAGNOSTICS
                        "<w>Ctrl-Q</w> make some debug messages quiet\n"
 #endif
+                       "<w>Ctrl-Y</w> temporarily suppress wizmode\n"
                        "<w>Ctrl-C</w> force a crash\n"
+                       "<w>`</w>      list unassigned command keys\n"
                        "\n"
                        "<yellow>Other wizard commands</yellow>\n"
                        "(not prefixed with <w>&</w>!)\n"

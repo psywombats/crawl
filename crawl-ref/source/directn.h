@@ -88,6 +88,7 @@ struct direction_chooser_args
     int range;
     bool just_looking;
     bool needs_path;
+    bool unrestricted; // for wizmode
     confirm_prompt_type self;
     const char *target_prefix;
     string top_prompt;
@@ -103,6 +104,7 @@ struct direction_chooser_args
         range(-1),
         just_looking(false),
         needs_path(true),
+        unrestricted(false),
         self(CONFIRM_PROMPT),
         target_prefix(nullptr),
         behaviour(nullptr),
@@ -241,7 +243,6 @@ private:
     targ_mode_type mode;        // Hostiles or friendlies?
     int range;                  // Max range to consider
     bool just_looking;
-    bool needs_path;            // Determine a ray while we're at it?
     confirm_prompt_type self;   // What do when aiming at yourself
     const char *target_prefix;  // A string displayed before describing target
     string top_prompt;          // Shown at the top of the message window
@@ -270,6 +271,12 @@ private:
 
     // Default behaviour, saved across instances.
     static targeting_behaviour stock_behaviour;
+
+    bool unrestricted;
+
+public:
+    // TODO: fix the weird behavior that led to this hack
+    bool needs_path;            // Determine a ray while we're at it?
 };
 
 // Monster equipment description level.
@@ -280,10 +287,6 @@ enum mons_equip_desc_level_type
     DESC_IDENTIFIED,
     DESC_WEAPON_WARNING, // like DESC_WEAPON but also includes dancing weapons
 };
-
-#ifndef USE_TILE_LOCAL
-char mlist_index_to_letter(int index);
-#endif
 
 void direction(dist &moves, const direction_chooser_args& args);
 

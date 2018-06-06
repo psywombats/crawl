@@ -326,6 +326,12 @@ void monster::add_enchantment_effect(const mon_enchant &ench, bool quiet)
              name(DESC_THE).c_str());
         break;
 
+    case ENCH_VILE_CLUTCH:
+        you.start_constricting(*this);
+        mprf(MSGCH_WARN, "Zombie hands grab %s.",
+             name(DESC_THE).c_str());
+        break;
+
     default:
         break;
     }
@@ -973,6 +979,20 @@ void monster::remove_enchantment_effect(const mon_enchant &me, bool quiet)
             simple_monster_message(*this, " is no longer infested.");
         break;
 
+    case ENCH_VILE_CLUTCH:
+        if (is_constricted())
+        {
+            // We handle the end-of-enchantment message here since the method
+            // of constriction is no longer detectable.
+            if (!quiet && you.can_see(*this))
+            {
+                mprf("The zombie hands release their grip on %s.",
+                        name(DESC_THE).c_str());
+            }
+            stop_being_constricted(true);
+        }
+        break;
+
     case ENCH_STILL_WINDS:
         end_still_winds();
         break;
@@ -1450,7 +1470,6 @@ void monster::apply_enchantment(const mon_enchant &me)
     case ENCH_SAP_MAGIC:
     case ENCH_CORROSION:
     case ENCH_GOLD_LUST:
-    case ENCH_DISTRACTED_ACROBATICS:
     case ENCH_RESISTANCE:
     case ENCH_HEXED:
     case ENCH_BRILLIANCE_AURA:
@@ -1461,6 +1480,8 @@ void monster::apply_enchantment(const mon_enchant &me)
     case ENCH_BLACK_MARK:
     case ENCH_STILL_WINDS:
     case ENCH_RING_OF_THUNDER:
+    case ENCH_WHIRLWIND_PINNED:
+    case ENCH_VILE_CLUTCH:
         decay_enchantment(en);
         break;
 
@@ -1564,30 +1585,6 @@ void monster::apply_enchantment(const mon_enchant &me)
         {
             simple_monster_message(*this, " burns!");
             dprf("sticky flame damage: %d", dam);
-
-            if (mons_genus(type) == MONS_SHEEP)
-            {
-                for (adjacent_iterator ai(pos()); ai; ++ai)
-                {
-                    monster *mon = monster_at(*ai);
-                    if (mon
-                        && (mons_genus(mon->type) == MONS_SHEEP)
-                        && !mon->has_ench(ENCH_STICKY_FLAME)
-                        && coinflip())
-                    {
-                        const int dur = me.degree/2 + 1 + random2(me.degree);
-                        mon->add_ench(mon_enchant(ENCH_STICKY_FLAME, dur,
-                                                  me.agent()));
-                        mon->add_ench(mon_enchant(ENCH_FEAR, dur + random2(20),
-                                                  me.agent()));
-                        if (visible_to(&you))
-                            mprf("%s catches fire!", mon->name(DESC_A).c_str());
-                        behaviour_event(mon, ME_SCARE, me.agent());
-                        xom_is_stimulated(100);
-                    }
-                }
-            }
-
             hurt(me.agent(), dam, BEAM_STICKY_FLAME);
         }
 
@@ -1819,6 +1816,19 @@ void monster::apply_enchantment(const mon_enchant &me)
         }
         break;
 
+    case ENCH_VORTEX:
+        tornado_damage(this, speed_to_duration(speed), true);
+        if (decay_enchantment(en))
+        {
+            add_ench(ENCH_VORTEX_COOLDOWN);
+            if (you.can_see(*this))
+            {
+                mprf("The winds around %s start to calm down.",
+                     name(DESC_THE).c_str());
+            }
+        }
+        break;
+
     // This is like Corona, but if silver harms them, it has sticky
     // flame levels of damage.
     case ENCH_SILVER_CORONA:
@@ -1924,6 +1934,7 @@ void monster::apply_enchantment(const mon_enchant &me)
         break;
 
     case ENCH_TORNADO_COOLDOWN:
+    case ENCH_VORTEX_COOLDOWN:
         if (decay_enchantment(en))
         {
             remove_tornado_clouds(mid);
@@ -2161,7 +2172,8 @@ static const char *enchant_names[] =
 #endif
     "aura_of_brilliance", "empowered_spells", "gozag_incite", "pain_bond",
     "idealised", "bound_soul", "infestation",
-    "stilling the winds", "thunder_ringed", "distracted by acrobatics",
+    "stilling the winds", "thunder_ringed", "pinned_by_whirlwind",
+    "vortex", "vortex_cooldown", "vile_clutch",
     "buggy",
 };
 
@@ -2418,6 +2430,9 @@ int mon_enchant::calc_duration(const monster* mons,
         break;
     case ENCH_TORNADO_COOLDOWN:
         cturn = random_range(25, 35) * 10 / _mod_speed(10, mons->speed);
+        break;
+    case ENCH_VORTEX_COOLDOWN:
+        cturn = random_range(7, 17) * 10 / _mod_speed(10, mons->speed);
         break;
     case ENCH_FROZEN:
         cturn = 3 * BASELINE_DELAY;

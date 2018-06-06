@@ -6,8 +6,9 @@
 
 #include "libutil.h"
 #include "macro.h"
+#include "tiles-build-specific.h"
 
-StatRegion::StatRegion(FontWrapper *font) : TextRegion(font)
+StatRegion::StatRegion(FontWrapper *font_arg) : TextRegion(font_arg)
 {
 }
 

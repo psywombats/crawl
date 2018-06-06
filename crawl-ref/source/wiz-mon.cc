@@ -177,10 +177,10 @@ void wizard_create_spec_monster_name()
         }
         ghost.job = static_cast<job_type>(job_id);
         ghost.xl = 7;
+        ghost.max_hp = 20;
+        ASSERT(debug_check_ghost(ghost));
 
         mon.set_ghost(ghost);
-
-        ghosts.push_back(ghost);
     }
 }
 
@@ -757,7 +757,7 @@ static void _move_monster(const coord_def& where, int idx1)
 {
     dist moves;
     direction_chooser_args args;
-    args.needs_path = false;
+    args.unrestricted = true;
     args.top_prompt = "Move monster to where?";
     args.default_place = where;
     direction(moves, args);
@@ -780,6 +780,11 @@ static void _move_monster(const coord_def& where, int idx1)
     {
         mon2->moveto(where);
         mon1->check_redraw(where);
+    }
+    if (!you.see_cell(moves.target))
+    {
+        mon1->flags &= ~(MF_WAS_IN_VIEW | MF_SEEN);
+        mon1->seen_context = SC_NONE;
     }
 }
 
@@ -1192,9 +1197,9 @@ void debug_ghosts()
     const char c = toalower(getchm());
 
     if (c == 'c')
-        save_ghost(true);
+        save_ghosts(ghost_demon::find_ghosts(), true);
     else if (c == 'l')
-        load_ghost(false);
+        load_ghosts(ghost_demon::max_ghosts_per_level(env.absdepth0), false);
     else
         canned_msg(MSG_OK);
 }

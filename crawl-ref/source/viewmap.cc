@@ -31,6 +31,7 @@
 #include "stringutil.h"
 #include "terrain.h"
 #include "tileview.h"
+#include "tiles-build-specific.h"
 #include "travel.h"
 #include "unicode.h"
 #include "view.h"
@@ -41,6 +42,13 @@
 #endif
 
 #ifndef USE_TILE_LOCAL
+/**
+ * Get a console colour for representing the travel possibility at the given
+ * position based on the last travel update. Used when drawing the console map.
+ *
+ * @param p The position.
+ * @returns An unsigned int value for the colour.
+*/
 static unsigned _get_travel_colour(const coord_def& p)
 {
 #ifdef WIZARD
@@ -50,13 +58,19 @@ static unsigned _get_travel_colour(const coord_def& p)
 
     if (is_waypoint(p))
         return LIGHTGREEN;
+
     if (is_stair_exclusion(p))
         return Options.tc_excluded;
-    short dist = travel_point_distance[p.x][p.y];
+
+    const unsigned no_travel_col
+        = feat_is_traversable(grd(p)) ? Options.tc_forbidden
+                                      : Options.tc_dangerous;
+
+    const short dist = travel_point_distance[p.x][p.y];
     return dist > 0?                    Options.tc_reachable        :
            dist == PD_EXCLUDED ?        Options.tc_excluded         :
            dist == PD_EXCLUDED_RADIUS ? Options.tc_exclude_circle   :
-           dist < 0?                    Options.tc_dangerous        :
+           dist < 0?                    no_travel_col               :
                                         Options.tc_disconnected;
 }
 #endif
@@ -93,29 +107,6 @@ bool travel_colour_override(const coord_def& p)
         return false;
 }
 
-static bool _is_explore_horizon(const coord_def& c)
-{
-    if (env.map_knowledge(c).feat() != DNGN_UNSEEN)
-        return false;
-
-    // Note: c might be on map edge, walkable squares not really.
-    for (adjacent_iterator ai(c); ai; ++ai)
-        if (in_bounds(*ai))
-        {
-            dungeon_feature_type feat = env.map_knowledge(*ai).feat();
-            if (feat != DNGN_UNSEEN
-                && !feat_is_solid(feat)
-                && !feat_is_door(feat))
-            {
-                return true;
-            }
-        }
-
-    return false;
-}
-#endif
-
-#ifndef USE_TILE_LOCAL
 static char32_t _get_sightmap_char(dungeon_feature_type feat)
 {
     return get_feature_def(feat).symbol();
@@ -347,7 +338,7 @@ static void _draw_level_map(int start_x, int start_y, bool travel_mode,
 
                 const show_class show = get_cell_show_class(env.map_knowledge(c));
 
-                if (show == SH_NOTHING && _is_explore_horizon(c))
+                if (show == SH_NOTHING && is_explore_horizon(c))
                 {
                     const feature_def& fd = get_feature_def(DNGN_EXPLORE_HORIZON);
                     cell->glyph = fd.symbol();
@@ -599,10 +590,16 @@ static void _forget_map()
 {
     for (rectangle_iterator ri(0); ri; ++ri)
     {
-        if (env.map_knowledge(*ri).flags & MAP_VISIBLE_FLAG)
+        auto& flags = env.map_knowledge(*ri).flags;
+        // don't touch squares we can currently see
+        if (flags & MAP_VISIBLE_FLAG)
             continue;
-        env.map_knowledge(*ri).flags &= ~MAP_SEEN_FLAG;
-        env.map_knowledge(*ri).flags |= MAP_MAGIC_MAPPED_FLAG;
+        // squares we've seen in the past, pretend we've mapped instead
+        if (flags & MAP_SEEN_FLAG)
+        {
+            flags |= MAP_MAGIC_MAPPED_FLAG;
+            flags &= ~MAP_SEEN_FLAG;
+        }
         env.map_seen.set(*ri, false);
 #ifdef USE_TILE
         tiles.update_minimap(*ri);
@@ -1160,8 +1157,19 @@ bool show_map(level_pos &lpos,
                 {
                     if (you.travel_x > 0 && you.travel_y > 0)
                     {
-                        move_x = you.travel_x - lpos.pos.x;
-                        move_y = you.travel_y - lpos.pos.y;
+                        if (you.travel_z == level_id::current())
+                        {
+                            move_x = you.travel_x - lpos.pos.x;
+                            move_y = you.travel_y - lpos.pos.y;
+                        }
+                        else if (allow_offlevel && you.travel_z.is_valid()
+                                        && is_existing_level(you.travel_z))
+                        {
+                            // previous travel target is offlevel
+                            lpos = level_pos(you.travel_z,
+                                        coord_def(you.travel_x, you.travel_y));
+                            los_changed();
+                        }
                     }
                 }
                 else

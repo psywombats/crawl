@@ -23,6 +23,7 @@
 #include "exercise.h"
 #include "fight.h"
 #include "fineff.h"
+#include "food.h"
 #include "god-conduct.h"
 #include "god-passive.h" // passive_t::no_haste
 #include "item-name.h"
@@ -203,7 +204,7 @@ int attack::calc_to_hit(bool random)
                                          && using_weapon()));
 
         // hunger penalty
-        if (you.hunger_state <= HS_STARVING)
+        if (apply_starvation_penalties())
             mhit -= 3;
 
         // armour penalty
@@ -348,6 +349,7 @@ string attack::anon_pronoun(pronoun_type pron)
  */
 void attack::init_attack(skill_type unarmed_skill, int attack_number)
 {
+    ASSERT(attacker);
     weapon          = attacker->weapon(attack_number);
 
     wpn_skill       = weapon ? item_attack_skill(*weapon) : unarmed_skill;
@@ -1487,7 +1489,6 @@ bool attack::apply_damage_brand(const char *what)
         defender->expose_to_element(BEAM_FIRE, 2);
         if (defender->is_player())
             maybe_melt_player_enchantments(BEAM_FIRE, special_damage);
-        attacker->god_conduct(DID_FIRE, 1);
         break;
 
     case SPWPN_FREEZING:

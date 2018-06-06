@@ -209,7 +209,7 @@ bool give_monster_proper_name(monster& mon, bool orcs_only = true);
 
 bool mons_flattens_trees(const monster& mon);
 size_type mons_class_body_size(monster_type mc);
-bool mons_class_res_wind(monster_type mc);
+bool mons_class_res_tornado(monster_type mc);
 
 mon_itemuse_type mons_class_itemuse(monster_type mc);
 mon_itemuse_type mons_itemuse(const monster& mon);
@@ -245,7 +245,7 @@ bool mons_class_sees_invis(monster_type type, monster_type base);
 bool mons_immune_magic(const monster& mon);
 
 mon_attack_def mons_attack_spec(const monster& mon, int attk_number, bool base_flavour = false);
-string mon_attack_name(attack_type attack);
+string mon_attack_name(attack_type attack, bool with_object = true);
 bool flavour_triggers_damageless(attack_flavour flavour);
 int flavour_damage(attack_flavour flavour, int HD, bool random = true);
 
@@ -560,10 +560,12 @@ bool mons_is_notable(const monster& mon);
 
 int max_mons_charge(monster_type m);
 
-void init_mutant_beast(monster &mon, short HD, vector<int> beast_facets,
-                       set<int> avoid_facets);
-void radiate_pain_bond(const monster& mon, int damage, const monster* original_target);
+void init_mutant_beast(monster &mon, short HD, vector<int> beast_facets);
+
+void radiate_pain_bond(const monster& mon, int damage,
+                       const monster* original_target);
 void throw_monster_bits(const monster& mon);
+
 void set_ancestor_spells(monster &ancestor, bool notify = false);
 
 typedef function<bool (monster& mon)> monster_func;

@@ -25,7 +25,7 @@ NAME: david_orc_1_choice
 TAGS: orc_entry
 MONS: orc, warg / orc priest / orc warrior, orc warrior / orc
 ITEM: % / scroll of teleportation / scroll of remove curse / scroll of identify
-ITEM: % / w:2 * / scroll of blinking / scroll of recharging / scroll of fear
+ITEM: % / w:2 * / scroll of blinking / scroll of fear
 SHUFFLE: %1
 ORIENT: float
 KFEAT: O = enter_orcish_mines
@@ -189,12 +189,12 @@ ORIENT:  float
 MONS:    orc, orc priest / orc wizard
 MONS:    w:50 orc warrior / ogre, swamp drake
 # The drake's name is Bobby. Since you did ask.
-KITEM:   1 = meat ration w:5 / nothing / animal skin / \
+KITEM:   1 = ration w:5 / nothing / animal skin / \
              potion of degeneration w:20 / potion of haste w:2 / \
              potion of might w:2
 KFEAT:   1 = 1
-ITEM:    club, potion of degeneration ident:type, royal jelly
-ITEM:    meat ration w:2 / nothing, potion of degeneration ident:type
+ITEM:    club, potion of degeneration ident:type, ration w:5
+ITEM:    ration w:2 / nothing, potion of degeneration ident:type
 SHUFFLE: defO
 KFEAT:   O = enter_orcish_mines
 MAP
@@ -251,28 +251,29 @@ MONS:   orc / w:2 goblin / w:2 hobgoblin / nothing
 MONS:   orc warrior / orc priest / orc wizard / nothing
 MONS:   warg / ogre / nothing
 ORIENT: float
-SUBST:  ? = x . $:1
+SUBST: ; = . $:1
+SUBST: ? = x . $:1
 KFEAT: O = enter_orcish_mines
 MAP
-xxx.xxxxxxxxxxxxxxxxxxx
+xxx@xxxxxxxxxxxxxxxxxxx
 xxx?.x?x?xx?xxx??xx?xxx
 xx..xxx..1.xxx....13xxx
 xx.x??x.x1xx?x.21xx?..x
-xx...x..xxx.2..1.x.x??.
+xx...x..xxx.2..1.x.x??@
 xx?x.....?x.x..x.x1?.xx
-xx..??12x?x.1.1?x.x??xx
+xx..??12x?x.1.1?x.x;?xx
 xxx..x..x??O.x..x.xx.xx
 x?..?x......x?.x.??x.xx
 xx.x??.x.x..?x..xx.x?xx
-x?xx?xx.x??...x.1x.1??x
+x?xx?xx.x??...x.1x.1;?x
 xx..xxx...x.x.x.1?1.xxx
-x?.2....xx2.x...xx.x??x
+x?.2....xx2.x...xx.x;?x
 xxx??xx..xx.xx.x?..xxxx
 xx..1.x.x.3...x2.x1..xx
-..x??x.xxx..xxxx??.??xx
-xx?.??.11.x?xxx..x..xxx
+..x??x.xxx..xxxx?;.??xx
+xx;.??.11.x;xxx..x..xxx
 x??xxxx???xx?xxx??x.?xx
-xxxxxxxxxxxxxxxxxxxx.xx
+xxxxxxxxxxxxxxxxxxxx@xx
 ENDMAP
 
 ##############################################################################

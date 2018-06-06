@@ -16,7 +16,7 @@ public:
     ~SDLWrapper();
 
     // Class functions
-    virtual int init(coord_def *m_windowsz, int *densityNum, int *densityDen)
+    virtual int init(coord_def *m_windowsz)
         override;
 
     // Environment state functions
@@ -25,8 +25,8 @@ public:
 #ifdef TARGET_OS_WINDOWS
     virtual void set_window_placement(coord_def *m_windowsz);
 #endif
-    virtual key_mod get_mod_state() const override;
-    virtual void set_mod_state(key_mod mod) override;
+    virtual tiles_key_mod get_mod_state() const override;
+    virtual void set_mod_state(tiles_key_mod mod) override;
 
     // System time functions
     virtual unsigned int set_timer(unsigned int interval,
@@ -42,6 +42,7 @@ public:
     virtual void show_keyboard() override;
 
     // Display functions
+    virtual bool init_hidpi() override;
     virtual void resize(coord_def &m_windowsz) override;
     virtual void swap_buffers() override;
     virtual int screen_width() const override;
@@ -59,6 +60,7 @@ public:
 protected:
     // Helper functions
     SDL_Surface *load_image(const char *file) const;
+    int send_textinput(wm_event *event);
 
     SDL_Window *m_window;
     SDL_GLContext m_context;
@@ -67,6 +69,9 @@ protected:
 
 private:
     void glDebug(const char *msg);
+
+    int prev_keycode;
+    string m_textinput_queue;
 };
 
 #endif // USE_SDL

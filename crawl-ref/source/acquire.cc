@@ -39,6 +39,7 @@
 #include "state.h"
 #include "stringutil.h"
 #include "terrain.h"
+#include "unwind.h"
 
 static equipment_type _acquirement_armour_slot(bool);
 static armour_type _acquirement_armour_for_slot(equipment_type, bool);
@@ -409,25 +410,13 @@ static int _acquirement_food_subtype(bool /*divine*/, int& quantity)
         // class type is set elsewhere
         type_wanted = POT_BLOOD;
     }
-    else if (you_worship(GOD_FEDHAS))
-    {
-        // Fedhas worshippers get fruit to use for growth and evolution
-        type_wanted = FOOD_FRUIT;
-    }
     else
-    {
-        type_wanted = coinflip()
-            ? FOOD_ROYAL_JELLY
-            : you.get_mutation_level(MUT_HERBIVOROUS) ? FOOD_BREAD_RATION
-                                                      : FOOD_MEAT_RATION;
-    }
+        type_wanted = FOOD_RATION;
 
     quantity = 3 + random2(5);
 
     // giving more of the lower food value items
-    if (type_wanted == FOOD_FRUIT)
-        quantity = 8 + random2avg(15, 2);
-    else if (type_wanted == FOOD_ROYAL_JELLY || type_wanted == FOOD_CHUNK)
+    if (type_wanted == FOOD_CHUNK)
         quantity += 2 + random2avg(10, 2);
     else if (type_wanted == POT_BLOOD)
         quantity = 8 + random2(5);
@@ -705,18 +694,16 @@ static int _acquirement_wand_subtype(bool /*divine*/, int & /*quantity*/)
 {
     // basic total: 120
     vector<pair<wand_type, int>> weights = {
-        { WAND_SCATTERSHOT,     20 },
-        { WAND_CLOUDS,          20 },
-        { WAND_LIGHTNING,       16 },
-        { WAND_ACID,            16 },
-        { WAND_ICEBLAST,        16 },
+        { WAND_SCATTERSHOT,     25 },
+        { WAND_CLOUDS,          25 },
+        { WAND_ACID,            18 },
+        { WAND_ICEBLAST,        18 },
+        { WAND_ENSLAVEMENT,     you.get_mutation_level(MUT_NO_LOVE) ? 0 : 8 },
+        { WAND_PARALYSIS,       8 },
         { WAND_DISINTEGRATION,  5 },
-        { WAND_DIGGING,         5 },
         { WAND_POLYMORPH,       5 },
-        { WAND_ENSLAVEMENT,     you.get_mutation_level(MUT_NO_LOVE) ? 0 : 5 },
-        { WAND_PARALYSIS,       5 },
-        { WAND_CONFUSION,       3 },
-        { WAND_RANDOM_EFFECTS,  3 },
+        { WAND_DIGGING,         5 },
+        { WAND_RANDOM_EFFECTS,  2 },
         { WAND_FLAME,           1 },
     };
 
@@ -730,6 +717,13 @@ static int _acquirement_wand_subtype(bool /*divine*/, int & /*quantity*/)
     return *wand;
 }
 
+static int _acquirement_book_subtype(bool /*divine*/, int & /*quantity*/)
+{
+    return BOOK_MINOR_MAGIC;
+    //this gets overwritten later, but needs to be a sane value
+    //or asserts will get set off
+}
+
 typedef int (*acquirement_subtype_finder)(bool divine, int &quantity);
 static const acquirement_subtype_finder _subtype_finders[] =
 {
@@ -741,7 +735,7 @@ static const acquirement_subtype_finder _subtype_finders[] =
     0, // no scrolls
     _acquirement_jewellery_subtype,
     _acquirement_food_subtype, // potion acquirement = food for vampires
-    0, // books handled elsewhere
+    _acquirement_book_subtype,
     _acquirement_staff_subtype,
     0, // no, you can't acquire the orb
     _acquirement_misc_subtype,
@@ -832,8 +826,8 @@ static int _book_weight(book_type book)
     int total_weight = 0;
     for (spell_type stype : spellbook_template(book))
     {
-        // Skip over spells already seen.
-        if (you.seen_spell[stype])
+        // Skip over spells already in library.
+        if (you.spell_library[stype])
             continue;
         if (god_hates_spell(stype, you.religion))
             continue;
@@ -860,7 +854,7 @@ static bool _skill_useless_with_god(int skill)
     case GOD_ELYVILON:
         return skill == SK_NECROMANCY;
     case GOD_XOM:
-    case GOD_NEMELEX_XOBEH:
+    case GOD_RU:
     case GOD_KIKUBAAQUDGHA:
     case GOD_VEHUMET:
     case GOD_ASHENZARI:
@@ -1012,6 +1006,26 @@ static bool _do_book_acquirement(item_def &book, int agent)
         break;
     }
     } // switch book choice
+
+    // If we couldn't make a useful book, try to make a manual instead.
+    // We have to temporarily identify the book for this.
+    if (agent != GOD_XOM && agent != GOD_SIF_MUNA)
+    {
+        bool useless = false;
+        {
+            unwind_var<iflags_t> oldflags{book.flags};
+            book.flags |= ISFLAG_KNOW_TYPE;
+            useless = is_useless_item(book);
+        }
+        if (useless)
+        {
+            destroy_item(book);
+            book.base_type = OBJ_BOOKS;
+            book.quantity = 1;
+            return _acquire_manual(book);
+        }
+    }
+
     return true;
 }
 
@@ -1198,6 +1212,7 @@ static string _why_reject(const item_def &item, int agent)
         return "Destroying sif-gifted rarebook!";
     }
 
+#if TAG_MAJOR_VERSION == 34
     // The crystal ball case should be handled elsewhere, but just in
     // case, it's also handled here.
     if (agent == GOD_PAKELLAS)
@@ -1208,6 +1223,7 @@ static string _why_reject(const item_def &item, int agent)
             return "Destroying CBoE that Pakellas hates!";
         }
     }
+#endif
 
     return ""; // all OK
 }
@@ -1357,11 +1373,6 @@ int acquirement_create_item(object_class_type class_wanted,
             }
             // That might have changed the item's subtype.
             item_colour(acq_item);
-
-            // Don't mark books as seen if only generated for the
-            // acquirement statistics.
-            if (!debug)
-                mark_had_book(acq_item);
         }
         else if (acq_item.base_type == OBJ_JEWELLERY)
         {
@@ -1486,7 +1497,7 @@ bool acquirement(object_class_type class_wanted, int agent,
     if (you.get_mutation_level(MUT_NO_ARTIFICE))
         bad_class.set(OBJ_MISCELLANY);
 
-    bad_class.set(OBJ_FOOD, you_foodless_normally() && !you_worship(GOD_FEDHAS));
+    bad_class.set(OBJ_FOOD, you_foodless(false) && !you_worship(GOD_FEDHAS));
 
     static struct { object_class_type type; const char* name; } acq_classes[] =
     {
@@ -1495,14 +1506,13 @@ bool acquirement(object_class_type class_wanted, int agent,
         { OBJ_JEWELLERY,  "Jewellery" },
         { OBJ_BOOKS,      "Book" },
         { OBJ_STAVES,     "Staff " },
-        { OBJ_MISCELLANY, "Evocables" },
+        { OBJ_MISCELLANY, "Evocable" },
         { OBJ_FOOD,       0 }, // amended below
         { OBJ_GOLD,       "Gold" },
     };
     ASSERT(acq_classes[6].type == OBJ_FOOD);
-    acq_classes[6].name = you_worship(GOD_FEDHAS) ? "Fruit":
-                          you.species == SP_VAMPIRE  ? "Blood":
-                                                       "Food";
+    acq_classes[6].name = you.species == SP_VAMPIRE ? "Blood":
+                                                      "Food";
 
     int thing_created = NON_ITEM;
 

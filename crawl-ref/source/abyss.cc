@@ -391,7 +391,6 @@ static int _banished_depth(const int power)
 void banished(const string &who, const int power)
 {
     ASSERT(!crawl_state.game_is_arena());
-    push_features_to_abyss();
     if (brdepth[BRANCH_ABYSS] == -1)
         return;
 
@@ -733,6 +732,9 @@ static void _abyss_wipe_square_at(coord_def p, bool saveMonsters=false)
     if (env.map_forgotten.get())
         (*env.map_forgotten.get())(p).clear();
     env.map_seen.set(p, false);
+#ifdef USE_TILE
+    tile_forget_map(p);
+#endif
     StashTrack.update_stash(p);
 }
 
@@ -795,6 +797,7 @@ static void _abyss_update_transporter(const coord_def &pos,
     if (grd(pos) != DNGN_TRANSPORTER)
         return;
 
+    // Get the marker, since we will need to modify it.
     map_position_marker *marker =
         get_position_marker_at(pos, DNGN_TRANSPORTER);
     if (!marker || marker->dest == INVALID_COORD)
@@ -1806,6 +1809,7 @@ static bool _is_grid_corruptible(const coord_def &c)
     case DNGN_CLEAR_PERMAROCK_WALL:
     case DNGN_OPEN_SEA:
     case DNGN_LAVA_SEA:
+    case DNGN_TRANSPORTER_LANDING: // entry already taken care of as stairs
         return false;
 
     case DNGN_METAL_WALL:
@@ -1906,15 +1910,9 @@ static void _corrupt_square(const corrupt_env &cenv, const coord_def &c)
     actor* act = actor_at(c);
     if (feat_is_solid(feat) && (igrd(c) != NON_ITEM || act))
     {
-        coord_def newpos;
-        get_push_space(c, newpos, act, true);
-        if (!newpos.origin())
-        {
-            move_items(c, newpos);
-            if (act)
-                actor_at(c)->move_to_pos(newpos);
-        }
-        else
+        push_items_from(c, nullptr);
+        push_actor_from(c, nullptr, true);
+        if (actor_at(c) || igrd(c) != NON_ITEM)
             feat = DNGN_FLOOR;
     }
 

@@ -309,6 +309,8 @@ static int _actual_spread_rate(cloud_type type, int spread_rate)
     case CLOUD_STEAM:
     case CLOUD_GREY_SMOKE:
     case CLOUD_BLACK_SMOKE:
+    case CLOUD_PURPLE_SMOKE:
+    case CLOUD_BLUE_SMOKE:
     case CLOUD_FLUFFY:
         return 22;
     case CLOUD_RAIN:
@@ -448,10 +450,7 @@ static void _spread_fire(const cloud_struct &cloud)
         env.cloud[*ai].pos = *ai;
         env.cloud[*ai].decay = random2(30) + 25;
         if (cloud.whose == KC_YOU)
-        {
             did_god_conduct(DID_KILL_PLANT, 1);
-            did_god_conduct(DID_FIRE, 6);
-        }
         else if (cloud.whose == KC_FRIENDLY && !crawl_state.game_is_arena())
             did_god_conduct(DID_KILL_PLANT, 1);
 
@@ -848,7 +847,9 @@ static int _cloud_base_damage(const actor *act,
  */
 bool actor_cloud_immune(const actor &act, cloud_type type)
 {
-    if (is_harmless_cloud(type))
+    // Qazlalites and scarfwearers get immunity to clouds.
+    // and the Cloud Mage too!
+    if (is_harmless_cloud(type) || act.cloud_immune())
         return true;
 
     switch (type)
@@ -886,7 +887,7 @@ bool actor_cloud_immune(const actor &act, cloud_type type)
         case CLOUD_NEGATIVE_ENERGY:
             return act.res_negative_energy() >= 3;
         case CLOUD_TORNADO:
-            return act.res_wind();
+            return act.res_tornado();
         case CLOUD_RAIN:
             return !act.is_fiery();
         default:
@@ -917,9 +918,7 @@ bool actor_cloud_immune(const actor &act, const cloud_struct &cloud)
         return true;
     }
 
-    // Qazlalites and scarfwearers get immunity to clouds.
-    // and the Cloud Mage too!
-    return act.cloud_immune();
+    return false;
 }
 
 // Returns a numeric resistance value for the actor's resistance to

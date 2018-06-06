@@ -65,7 +65,6 @@ static void _make_all_books()
 
         item_def book(mitm[thing]);
 
-        mark_had_book(book);
         set_ident_flags(book, ISFLAG_KNOW_TYPE);
         set_ident_flags(book, ISFLAG_IDENT_MASK);
 
@@ -534,7 +533,7 @@ void wizard_value_item()
 
 void wizard_create_all_artefacts()
 {
-    you.octopus_king_rings = 0;
+    you.octopus_king_rings = 0x00;
     int octorings = 8;
 
     // Create all unrandarts.
@@ -1027,7 +1026,7 @@ static void _debug_acquirement_stats(FILE *ostat)
             if (spell_rarity(spell) == -1)
                 continue;
 
-            const bool seen = you.seen_spell[spell];
+            const bool seen = you.spell_library[spell];
 
             const spschools_type disciplines = get_spell_disciplines(spell);
             for (int d = 0; d <= SPTYP_LAST_EXPONENT; ++d)
@@ -1634,9 +1633,6 @@ void wizard_recharge_evokers()
             continue;
 
         evoker_debt(dummy.sub_type) = 0;
-
-        if (dummy.sub_type == MISC_LIGHTNING_ROD)
-            you.props["thunderbolt_charge"].get_int() = 0;
     }
     mpr("Evokers recharged.");
 }

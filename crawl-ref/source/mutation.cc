@@ -346,7 +346,6 @@ mutation_activity_type mutation_activity_level(mutation_type mut)
         case MUT_SLOW:
         case MUT_IRIDESCENT_SCALES:
             return mutation_activity_type::INACTIVE;
-        case MUT_LARGE_BONE_PLATES:
 #if TAG_MAJOR_VERSION == 34
         case MUT_ROUGH_BLACK_SCALES:
 #endif
@@ -368,14 +367,18 @@ mutation_activity_type mutation_activity_level(mutation_type mut)
     if (you.form == transformation::blade_hands && mut == MUT_PAWS)
         return mutation_activity_type::INACTIVE;
 
-    if (you_worship(GOD_DITHMENOS) && mut == MUT_IGNITE_BLOOD)
+    if (you.form == transformation::tree
+        && (mut == MUT_BLINK || mut == MUT_TELEPORT))
+    {
         return mutation_activity_type::INACTIVE;
-
+    }
+#if TAG_MAJOR_VERSION == 34
     if ((you_worship(GOD_PAKELLAS) || player_under_penance(GOD_PAKELLAS))
          && (mut == MUT_MANA_LINK || mut == MUT_MANA_REGENERATION))
     {
         return mutation_activity_type::INACTIVE;
     }
+#endif
 
     if (!form_can_bleed(you.form) && mut == MUT_SANGUINE_ARMOUR)
         return mutation_activity_type::INACTIVE;
@@ -552,12 +555,19 @@ void validate_mutations(bool debug_msg)
         {
             bool is_trait = false;
             int trait_level = 0;
+            // If the player has sacrificed xp, use the pre-sac xl; sac xp
+            // doesn't remove Ds mutations.
+            // You can still trick wizmode into crashing here.
+            const int check_xl = (you.get_mutation_level(MUT_INEXPERIENCED)
+                            && you.max_level <= you.get_experience_level() + 2)
+                                ? you.max_level
+                                : you.get_experience_level();
             for (player::demon_trait trait : you.demonic_traits)
             {
                 if (trait.mutation == mut)
                 {
                     is_trait = true;
-                    if (you.get_experience_level() >= trait.level_gained)
+                    if (check_xl >= trait.level_gained)
                         trait_level += 1;
                 }
             }
@@ -1408,8 +1418,7 @@ bool mutate(mutation_type which_mutation, const string &reason, bool failMsg,
 
         // Zin's protection.
         if (have_passive(passive_t::resist_mutation)
-            && (x_chance_in_y(you.piety, MAX_PIETY)
-                || x_chance_in_y(you.piety, MAX_PIETY + 22)))
+            && x_chance_in_y(you.piety, piety_breakpoint(5)))
         {
             simple_god_message(" protects your body from mutation!");
             return false;

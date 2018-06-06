@@ -84,9 +84,6 @@ spret_type conjure_flame(const actor *agent, int pow, const coord_def& where,
 
     fail_check();
 
-    if (agent->is_player())
-        did_god_conduct(DID_FIRE, min(5 + pow/2, 23));
-
     if (cloud)
     {
         // Reinforce the cloud - but not too much.
@@ -127,15 +124,16 @@ spret_type cast_poisonous_vapours(int pow, const dist &beam, bool fail)
     }
 
     monster* mons = monster_at(beam.target);
-    if (!mons || mons->submerged() || !you.can_see(*mons))
+    if (!mons || mons->submerged())
     {
-        mpr("You can't see any monster there!");
-        return SPRET_ABORT;
+        fail_check();
+        canned_msg(MSG_SPELL_FIZZLES);
+        return SPRET_SUCCESS; // still losing a turn
     }
 
-    if (actor_cloud_immune(*mons, CLOUD_POISON))
+    if (actor_cloud_immune(*mons, CLOUD_POISON) && mons->observable())
     {
-        mprf("But poisonous clouds would do no harm to %s!",
+        mprf("But poisonous vapours would do no harm to %s!",
              mons->name(DESC_THE).c_str());
         return SPRET_ABORT;
     }
@@ -252,7 +250,6 @@ void big_cloud(cloud_type cl_type, const actor *agent,
 spret_type cast_ring_of_flames(int power, bool fail)
 {
     fail_check();
-    did_god_conduct(DID_FIRE, min(5 + power/5, 50));
     you.increase_duration(DUR_FIRE_SHIELD,
                           6 + (power / 10) + (random2(power) / 5), 50,
                           "The air around you leaps into flame!");
@@ -422,9 +419,6 @@ spret_type cast_cloud_cone(const actor *caster, int pow, const coord_def &pos,
          caster->name(DESC_THE).c_str(),
          caster->conj_verb("create").c_str(),
          cloud_type_name(cloud).c_str());
-
-    if (cloud == CLOUD_FIRE && caster->is_player())
-        did_god_conduct(DID_FIRE, min(5 + pow/2, 23));
 
     return SPRET_SUCCESS;
 }

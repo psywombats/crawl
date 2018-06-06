@@ -11,6 +11,7 @@
 
 #include "colour.h"
 #include "stringutil.h"
+#include "maybe-bool.h"
 
 enum rc_line_type
 {
@@ -128,9 +129,7 @@ class TileColGameOption : public GameOption
 {
 public:
     TileColGameOption(VColour &val, std::set<std::string> _names,
-                      string _default)
-        : GameOption(_names), value(val),
-          default_value(str_to_tile_colour(_default)) { }
+                      string _default);
     void reset() const override;
     string loadFromString(std::string field, rc_line_type) const override;
 
@@ -201,3 +200,4 @@ private:
 };
 
 bool read_bool(const std::string &field, bool def_value);
+maybe_bool read_maybe_bool(const std::string &field);

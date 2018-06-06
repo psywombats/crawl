@@ -82,6 +82,7 @@
 #include "viewchar.h" // stringize_glyph
 
 static int _spell_enhancement(spell_type spell);
+static string _spell_failure_rate_description(spell_type spell);
 
 void surge_power(const int enhanced)
 {
@@ -120,11 +121,9 @@ static string _spell_base_description(spell_type spell, bool viewing)
     desc << "</" << colour_to_str(highlight) <<">";
 
     // spell fail rate, level
-    highlight = failure_rate_colour(spell);
-    desc << "<" << colour_to_str(highlight) << ">";
-    const string failure = failure_rate_to_string(raw_spell_fail(spell));
-    desc << chop_string(failure, 12);
-    desc << "</" << colour_to_str(highlight) << ">";
+    const string failure_rate = spell_failure_rate_string(spell);
+    const int width = strwidth(formatted_string::parse_string(failure_rate).tostring());
+    desc << failure_rate << string(12-width, ' ');
     desc << spell_difficulty(spell);
 
     return desc.str();
@@ -163,15 +162,8 @@ int list_spells(bool toggle_with_I, bool viewing, bool allow_preselect,
     if (toggle_with_I && get_spell_by_letter('I') != SPELL_NO_SPELL)
         toggle_with_I = false;
 
-#ifdef USE_TILE_LOCAL
-    const bool text_only = false;
-#else
-    const bool text_only = true;
-#endif
-
     ToggleableMenu spell_menu(MF_SINGLESELECT | MF_ANYPRINTABLE
-                              | MF_ALWAYS_SHOW_MORE | MF_ALLOW_FORMATTING,
-                              text_only);
+                              | MF_ALWAYS_SHOW_MORE | MF_ALLOW_FORMATTING);
     string titlestring = make_stringf("%-25.25s", title.c_str());
 #ifdef USE_TILE_LOCAL
     {
@@ -266,24 +258,26 @@ int list_spells(bool toggle_with_I, bool viewing, bool allow_preselect,
         spell_menu.add_entry(me);
     }
 
-    while (true)
+    int choice = 0;
+    spell_menu.on_single_selection = [&choice, &spell_menu](const MenuEntry& item)
     {
-        vector<MenuEntry*> sel = spell_menu.show();
-        if (!crawl_state.doing_prev_cmd_again)
-            redraw_screen();
-        if (sel.empty())
-            return 0;
-
-        ASSERT(sel.size() == 1);
-        ASSERT(sel[0]->hotkeys.size() == 1);
+        ASSERT(item.hotkeys.size() == 1);
         if (spell_menu.menu_action == Menu::ACT_EXAMINE)
         {
-            describe_spell(get_spell_by_letter(sel[0]->hotkeys[0]), nullptr);
-            redraw_screen();
+            describe_spell(get_spell_by_letter(item.hotkeys[0]), nullptr);
+            return true;
         }
         else
-            return sel[0]->hotkeys[0];
-    }
+        {
+            choice = item.hotkeys[0];
+            return false;
+        }
+    };
+
+    spell_menu.show();
+    if (!crawl_state.doing_prev_cmd_again)
+        redraw_screen();
+    return choice;
 }
 
 static int _apply_spellcasting_success_boosts(spell_type spell, int chance)
@@ -350,7 +344,7 @@ int raw_spell_fail(spell_type spell)
 
         200,
         260,
-        330,
+        340,
     };
     const int spell_level = spell_difficulty(spell);
     ASSERT_RANGE(spell_level, 0, (int) ARRAYSZ(difficulty_by_level));
@@ -444,43 +438,46 @@ int calc_spell_power(spell_type spell, bool apply_intel, bool fail_rate_check,
 
     power += you.skill(SK_SPELLCASTING, 50);
 
-    // Brilliance boosts spell power a bit (equivalent to three
-    // spell school levels).
-    if (!fail_rate_check && you.duration[DUR_BRILLIANCE])
-        power += 600;
+    if (fail_rate_check)
+    {
+        // Scale appropriately.
+        // The stepdown performs this step in the else block.
+        power *= scale;
+        power /= 100;
+    }
+    else
+    {
+        // Brilliance boosts spell power a bit (equivalent to three
+        // spell school levels).
+        if (you.duration[DUR_BRILLIANCE])
+            power += 600;
 
-    if (apply_intel)
-        power = (power * you.intel()) / 10;
+        if (apply_intel)
+            power = (power * you.intel()) / 10;
 
-    // [dshaligram] Enhancers don't affect fail rates any more, only spell
-    // power. Note that this does not affect Vehumet's boost in castability.
-    if (!fail_rate_check)
+        // [dshaligram] Enhancers don't affect fail rates any more, only spell
+        // power. Note that this does not affect Vehumet's boost in castability.
         power = apply_enhancement(power, _spell_enhancement(spell));
 
-    // Wild magic boosts spell power but decreases success rate.
-    if (!fail_rate_check)
-    {
+        // Wild magic boosts spell power but decreases success rate.
         power *= (10 + 3 * you.get_mutation_level(MUT_WILD_MAGIC));
         power /= (10 + 3 * you.get_mutation_level(MUT_SUBDUED_MAGIC));
-    }
 
-    // Augmentation boosts spell power at high HP.
-    if (!fail_rate_check)
-    {
+        // Augmentation boosts spell power at high HP.
         power *= 10 + 4 * augmentation_amount();
         power /= 10;
-    }
 
-    // Each level of horror reduces spellpower by 10%
-    if (you.duration[DUR_HORROR] && !fail_rate_check)
-    {
-        power *= 10;
-        power /= 10 + (you.props[HORROR_PENALTY_KEY].get_int() * 3) / 2;
-    }
+        // Each level of horror reduces spellpower by 10%
+        if (you.duration[DUR_HORROR])
+        {
+            power *= 10;
+            power /= 10 + (you.props[HORROR_PENALTY_KEY].get_int() * 3) / 2;
+        }
 
-    // at this point, `power` is assumed to be basically in centis.
-    // apply a stepdown, and scale.
-    power = stepdown_spellpower(power, scale);
+        // at this point, `power` is assumed to be basically in centis.
+        // apply a stepdown, and scale.
+        power = stepdown_spellpower(power, scale);
+    }
 
     const int cap = spell_power_cap(spell);
     if (cap > 0 && cap_power)
@@ -645,8 +642,7 @@ bool can_cast_spells(bool quiet)
         return false;
     }
 
-    if (!you.undead_state() && !you_foodless()
-        && you.hunger_state <= HS_STARVING)
+    if (apply_starvation_penalties())
     {
         if (!quiet)
             canned_msg(MSG_NO_ENERGY);
@@ -728,9 +724,11 @@ bool cast_a_spell(bool check_range, spell_type spell)
                 }
                 else
                 {
-                    mprf(MSGCH_PROMPT, "Casting: <w>%s</w>",
-                         spell_title(you.last_cast_spell));
-                    mprf(MSGCH_PROMPT, "Confirm with . or Enter, or press ? or * to list all spells.");
+                    mprf(MSGCH_PROMPT, "Casting: <w>%s</w> <lightgrey>(%s)</lightgrey>",
+                                       spell_title(you.last_cast_spell),
+                                       _spell_failure_rate_description(you.last_cast_spell).c_str());
+                    mprf(MSGCH_PROMPT, "Confirm with . or Enter, or press "
+                                       "? or * to list all spells.");
                 }
 
                 keyin = get_ch();
@@ -956,8 +954,8 @@ static void _majin_speak(spell_type spell)
  *
  * @param spell         The type of spell just cast.
  * @param god           Which god is casting the spell; NO_GOD if it's you.
- * @param fake_spell    Whether the spell is evoked, or from an innate or
- *                      divine ability.
+ * @param fake_spell    true if the spell is evoked or from an innate or divine ability
+ *                      false if it is a spell being cast normally.
  */
 static void _spellcasting_side_effects(spell_type spell, god_type god,
                                        bool fake_spell)
@@ -1052,21 +1050,6 @@ static void _try_monster_cast(spell_type spell, int powc,
 }
 #endif // WIZARD
 
-static void _maybe_cancel_repeat(spell_type spell)
-{
-#if TAG_MAJOR_VERSION == 34
-    switch (spell)
-    {
-    case SPELL_DELAYED_FIREBALL:        crawl_state.cant_cmd_repeat(make_stringf("You can't repeat %s.",
-                                                 spell_title(spell)));
-        break;
-
-    default:
-        break;
-    }
-#endif
-}
-
 static spret_type _do_cast(spell_type spell, int powc, const dist& spd,
                            bolt& beam, god_type god, bool fail);
 
@@ -1075,9 +1058,9 @@ static spret_type _do_cast(spell_type spell, int powc, const dist& spd,
  * it can't legally be cast in this circumstance, or because the player opts
  * to cancel it in response to a prompt?
  *
- * @param spell         The spell to be checked.
- * @param fake_spell    Whether the spell is evoked, or from an innate or
- *                      divine ability.
+ * @param spell         The spell to be checked
+ * @param fake_spell    true if the spell is evoked or from an innate or divine ability
+ *                      false if it is a spell being cast normally.
  * @return              Whether the spellcasting should be aborted.
  */
 static bool _spellcasting_aborted(spell_type spell, bool fake_spell)
@@ -1096,7 +1079,7 @@ static bool _spellcasting_aborted(spell_type spell, bool fake_spell)
         msg = spell_uselessness_reason(spell, true, true, fake_spell);
     }
 
-    if (msg != "")
+    if (!msg.empty())
     {
         mpr(msg);
         return true;
@@ -1122,16 +1105,26 @@ static bool _spellcasting_aborted(spell_type spell, bool fake_spell)
     }
 
     const int severity = fail_severity(spell);
+    const string failure_rate = spell_failure_rate_string(spell);
     if (Options.fail_severity_to_confirm > 0
         && Options.fail_severity_to_confirm <= severity
         && !crawl_state.disables[DIS_CONFIRMATIONS]
         && !fake_spell)
     {
-        string prompt = make_stringf("The spell is %s to cast%s "
-                                     "Continue anyway?",
+        if (failure_rate_to_int(raw_spell_fail(spell)) == 100)
+        {
+            mprf(MSGCH_WARN, "It is impossible to cast this spell "
+                    "(100%% risk of failure)!");
+            return true;
+        }
+
+        string prompt = make_stringf("The spell is %s to cast "
+                                     "(%s risk of failure)%s",
                                      fail_severity_adjs[severity],
+                                     failure_rate.c_str(),
                                      severity > 1 ? "!" : ".");
 
+        prompt = make_stringf("%s Continue anyway?", prompt.c_str());
         if (!yesno(prompt.c_str(), false, 'n'))
         {
             canned_msg(MSG_OK);
@@ -1169,9 +1162,9 @@ static unique_ptr<targeter> _spell_targeter(spell_type spell, int pow,
         return make_unique<targeter_cloud>(&you, range);
     case SPELL_THUNDERBOLT:
         return make_unique<targeter_thunderbolt>(&you, range,
-            (you.props.exists("thunderbolt_last")
-             && you.props["thunderbolt_last"].get_int() + 1 == you.num_turns) ?
-                you.props["thunderbolt_aim"].get_coord() : coord_def());
+            (you.props.exists(THUNDERBOLT_LAST_KEY)
+             && you.props[THUNDERBOLT_LAST_KEY].get_int() + 1 == you.num_turns) ?
+                you.props[THUNDERBOLT_AIM_KEY].get_coord() : coord_def());
     case SPELL_LRD:
         return make_unique<targeter_fragment>(&you, pow, range);
     case SPELL_FULMINANT_PRISM:
@@ -1199,6 +1192,13 @@ static unique_ptr<targeter> _spell_targeter(spell_type spell, int pow,
         return make_unique<targeter_smite>(&you, range, 2, 2, false,
                                            [](const coord_def& p) -> bool {
                                               return you.pos() != p; });
+
+    case SPELL_BORGNJORS_VILE_CLUTCH:
+        return make_unique<targeter_smite>(&you, range, 1, 1, false,
+                                           [](const coord_def& p) -> bool {
+                                              return you.pos() != p; });
+    case SPELL_PASSWALL:
+        return make_unique<targeter_passwall>(range);
 
     default:
         break;
@@ -1285,7 +1285,9 @@ vector<string> desc_success_chance(const monster_info& mi, int pow, bool evoked,
  *
  * @param spell         The type of spell being cast.
  * @param powc          Spellpower.
- * @param allow_fail    Whether spell-fail chance applies.
+ * @param allow_fail    true if it is a spell being cast normally.
+ *                      false if the spell is evoked or from an innate or divine ability
+ *
  * @param evoked_item   The wand the spell was evoked from if applicable, or
                         nullptr.
  * @return SPRET_SUCCESS if spell is successfully cast for purposes of
@@ -1343,7 +1345,7 @@ spret_type your_spells(spell_type spell, int powc, bool allow_fail,
                                 // it nevertheless requires line-of-fire.
                                 || spell == SPELL_APPORTATION;
 
-        const int range = calc_spell_range(spell, powc);
+        const int range = calc_spell_range(spell, powc, allow_fail);
 
         unique_ptr<targeter> hitfunc = _spell_targeter(spell, powc, range);
 
@@ -1362,13 +1364,11 @@ spret_type your_spells(spell_type spell, int powc, bool allow_fail,
                                    eff_pow, evoked_item, hitfunc.get());
         }
 
-        string title = "Aiming: <white>";
-        title += spell_title(spell);
-        title += "</white>";
-        if (evoked_item
-            && !item_ident(*evoked_item, ISFLAG_KNOW_PLUSES))
+        string title = make_stringf("Aiming: <w>%s</w>", spell_title(spell));
+        if (allow_fail)
         {
-            title += " <lightred>(will waste charges)</lightred>";
+            title += make_stringf(" <lightgrey>(%s)</lightgrey>",
+                _spell_failure_rate_description(spell).c_str());
         }
 
         direction_chooser_args args;
@@ -1482,9 +1482,6 @@ spret_type your_spells(spell_type spell, int powc, bool allow_fail,
     }
 
     dprf("Spell #%d, power=%d", spell, powc);
-
-    if (crawl_state.prev_cmd == CMD_CAST_SPELL && god == GOD_NO_GOD)
-        _maybe_cancel_repeat(spell);
 
     // Have to set aim first, in case the spellcast kills its first target
     if (you.props.exists("battlesphere") && allow_fail)
@@ -1617,11 +1614,6 @@ static spret_type _do_cast(spell_type spell, int powc, const dist& spd,
     case SPELL_CALL_DOWN_DAMNATION:
         return cast_smitey_damnation(powc, beam) ? SPRET_SUCCESS : SPRET_ABORT;
 
-#if TAG_MAJOR_VERSION == 34
-    case SPELL_DELAYED_FIREBALL:
-        return cast_delayed_fireball(fail);
-#endif
-
     // LOS spells
 
     // Beogh ability, no failure.
@@ -1683,6 +1675,9 @@ static spret_type _do_cast(spell_type spell, int powc, const dist& spd,
 
     case SPELL_IGNITION:
         return cast_ignition(&you, powc, fail);
+
+    case SPELL_BORGNJORS_VILE_CLUTCH:
+        return cast_borgnjors_vile_clutch(powc, beam, fail);
 
     // Summoning spells, and other spells that create new monsters.
     // If a god is making you cast one of these spells, any monsters
@@ -1790,9 +1785,6 @@ static spret_type _do_cast(spell_type spell, int powc, const dist& spd,
     case SPELL_ENGLACIATION:
         return cast_englaciation(powc, fail);
 
-    case SPELL_CONTROL_UNDEAD:
-        return mass_enchantment(ENCH_CHARM, powc, fail);
-
     case SPELL_AURA_OF_ABJURATION:
         return cast_aura_of_abjuration(powc, fail);
 
@@ -1837,9 +1829,6 @@ static spret_type _do_cast(spell_type spell, int powc, const dist& spd,
     case SPELL_OZOCUBUS_ARMOUR:
         return ice_armour(powc, fail);
 
-    case SPELL_CIGOTUVIS_EMBRACE:
-        return corpse_armour(powc, fail);
-
     case SPELL_SILENCE:
         return cast_silence(powc, fail);
 
@@ -1876,7 +1865,7 @@ static spret_type _do_cast(spell_type spell, int powc, const dist& spd,
         return conjure_flame(&you, powc, beam.target, fail);
 
     case SPELL_PASSWALL:
-        return cast_passwall(spd.delta, powc, fail);
+        return cast_passwall(beam.target, powc, fail);
 
     case SPELL_APPORTATION:
         return cast_apportation(powc, beam, fail);
@@ -2079,6 +2068,25 @@ string spell_hunger_string(spell_type spell)
     return hunger_cost_string(spell_hunger(spell));
 }
 
+string spell_failure_rate_string(spell_type spell)
+{
+    const string failure = failure_rate_to_string(raw_spell_fail(spell));
+    const string colour = colour_to_str(failure_rate_colour(spell));
+    return make_stringf("<%s>%s</%s>",
+            colour.c_str(), failure.c_str(), colour.c_str());
+}
+
+static string _spell_failure_rate_description(spell_type spell)
+{
+    const string failure = failure_rate_to_string(raw_spell_fail(spell));
+    const char *severity_adj = fail_severity_adjs[fail_severity(spell)];
+    const string colour = colour_to_str(failure_rate_colour(spell));
+    const char *col = colour.c_str();
+
+    return make_stringf("<%s>%s</%s>; <%s>%s</%s> risk of failure",
+            col, severity_adj, col, col, failure.c_str(), col);
+}
+
 string spell_noise_string(spell_type spell, int chop_wiz_display_width)
 {
     const int casting_noise = spell_noise(spell);
@@ -2172,11 +2180,11 @@ string spell_power_string(spell_type spell)
         return string(numbars, '#') + string(capbars - numbars, '.');
 }
 
-int calc_spell_range(spell_type spell, int power)
+int calc_spell_range(spell_type spell, int power, bool allow_bonus)
 {
     if (power == 0)
         power = calc_spell_power(spell, true, false, false);
-    const int range = spell_range(spell, power);
+    const int range = spell_range(spell, power, allow_bonus);
 
     return range;
 }
@@ -2274,6 +2282,9 @@ const set<spell_type> removed_spells =
     SPELL_PHASE_SHIFT,
     SPELL_MASS_CONFUSION,
     SPELL_CURE_POISON,
+    SPELL_CONTROL_UNDEAD,
+    SPELL_CIGOTUVIS_EMBRACE,
+    SPELL_DELAYED_FIREBALL,
 #endif
 };
 

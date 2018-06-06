@@ -330,7 +330,10 @@ int main(int argc, char *argv[])
 #endif
 
     _launch_game_loop();
-    end(0);
+    if (crawl_state.last_game_exit.message.size())
+        end(0, false, "%s\n", crawl_state.last_game_exit.message.c_str());
+    else
+        end(0);
 
     return 0;
 }
@@ -339,9 +342,7 @@ static void _reset_game()
 {
     clrscr();
     // Unset by death, but not by saving with restart_after_save.
-    crawl_state.need_save = false;
-    crawl_state.type = GAME_TYPE_UNSPECIFIED;
-    crawl_state.updating_scores = false;
+    crawl_state.reset_game();
     clear_message_store();
     macro_clear_buffers();
     the_lost_ones.clear();
@@ -378,11 +379,12 @@ static void _launch_game_loop()
         catch (game_ended_condition &ge)
         {
             game_ended = true;
+            crawl_state.last_game_exit = ge;
             _reset_game();
 
             // Don't re-enter the Sprint menu with restart_after_save, as
             // that would reload the just-saved game immediately.
-            if (ge.was_saved)
+            if (ge.exit_reason == game_exit::save)
                 crawl_state.last_type = GAME_TYPE_UNSPECIFIED;
         }
         catch (ext_fail_exception &fe)
@@ -393,7 +395,7 @@ static void _launch_game_loop()
         {
             end(1, false, "Error: truncation inside the save file.\n");
         }
-    } while (Options.restart_after_game
+    } while (crawl_should_restart(crawl_state.last_game_exit.exit_reason)
              && game_ended
              && !crawl_state.seen_hups);
 }
@@ -411,13 +413,7 @@ NORETURN static void _launch_game()
 
     _set_removed_types_as_identified();
 
-    if (!game_start && you.prev_save_version != Version::Long)
-    {
-        const string note = make_stringf("Upgraded the game from %s to %s",
-                                         you.prev_save_version.c_str(),
-                                         Version::Long);
-        take_note(Note(NOTE_MESSAGE, 0, 0, note));
-    }
+    Version::record(you.prev_save_version);
 
     if (!crawl_state.game_is_tutorial())
     {
@@ -552,6 +548,8 @@ static void _show_commandline_options_help()
     puts("      Defaults to entire dungeon; same level syntax as -mapstat.");
     puts("  -iters <num>        For -mapstat and -objstat, set the number of "
          "iterations");
+    puts("  -force-map <map>    For -mapstat and -objstat, alway choose the "
+         "      given map on every level.");
 #endif
     puts("");
     puts("Miscellaneous options:");
@@ -655,7 +653,7 @@ static void _take_starting_note()
     notestr.clear();
 
 #ifdef WIZARD
-    if (you.wizard)
+    if (you.wizard || you.suppress_wizard)
     {
         notestr << "You started the game in wizard mode.";
         take_note(Note(NOTE_MESSAGE, 0, 0, notestr.str()));
@@ -705,14 +703,12 @@ static void _start_running(int dir, int mode)
         && (dir == RDIR_REST || you.is_habitable_feat(grd(next_pos)))
         && count_adjacent_slime_walls(next_pos))
     {
-        if (dir == RDIR_REST)
-            mprf(MSGCH_WARN, "You're standing next to a slime covered wall!");
-        else
-            mprf(MSGCH_WARN, "You're about to run into the slime covered wall!");
+        mprf(MSGCH_WARN, "You're about to run into a slime covered wall!");
         return;
     }
 
-    if (wu_jian_can_wall_jump(next_pos))
+    string wall_jump_err;
+    if (wu_jian_can_wall_jump(next_pos, wall_jump_err))
        return; // Do not wall jump while running.
 
     you.running.initialise(dir, mode);
@@ -847,8 +843,8 @@ static bool _cmd_is_repeatable(command_type cmd, bool is_again = false)
     case CMD_MOVE_DOWN_RIGHT:
         if (!i_feel_safe())
         {
-            return yesno("Really repeat movement command while monsters "
-                         "are nearby?", false, 'n');
+            return yesno("Really repeat movement command while danger "
+                         "is nearby?", false, 'n');
         }
 
         return true;
@@ -900,6 +896,9 @@ static void _update_place_info()
 
     delta.turns_total++;
     delta.elapsed_total += you.time_taken;
+
+    LevelXPInfo  xp_delta;
+    xp_delta.turns++;
 
     switch (you.running)
     {
@@ -953,9 +952,17 @@ static void _update_place_info()
     you.global_info += delta;
     you.global_info.assert_validity();
 
+
     PlaceInfo& curr_PlaceInfo = you.get_place_info();
     curr_PlaceInfo += delta;
     curr_PlaceInfo.assert_validity();
+
+    you.global_xp_info += xp_delta;
+    you.global_xp_info.assert_validity();
+
+    LevelXPInfo& curr_LevelXPInfo = you.get_level_xp_info();
+    curr_LevelXPInfo += xp_delta;
+    curr_LevelXPInfo.assert_validity();
 }
 
 //
@@ -1108,6 +1115,14 @@ static void _input()
 #endif
         const command_type cmd = you.turn_is_over ? CMD_NO_CMD : _get_next_cmd();
 
+        // Clear "last action was a move or rest" flag.
+        // This needs to be after _get_next_cmd, which triggers a tiles redraw.
+        if (you.props[LAST_ACTION_WAS_MOVE_OR_REST_KEY].get_bool())
+        {
+            you.props[LAST_ACTION_WAS_MOVE_OR_REST_KEY] = false;
+            you.redraw_evasion = true;
+        }
+
         if (crawl_state.seen_hups)
             save_game(true, "Game saved, see you later!");
 
@@ -1179,8 +1194,6 @@ static void _input()
 
     _update_replay_state();
 
-    _update_place_info();
-
     crawl_state.clear_god_acting();
 
 }
@@ -1191,7 +1204,13 @@ static bool _can_take_stairs(dungeon_feature_type ftype, bool down,
     // Up and down both work for shops, portals, and altars.
     if (ftype == DNGN_ENTER_SHOP || feat_is_altar(ftype))
     {
-        if (you.berserk())
+        if (crawl_state.doing_prev_cmd_again)
+        {
+            mprf("You can't repeat %s actions.",
+                ftype == DNGN_ENTER_SHOP ? "shop" : "altar");
+            crawl_state.cancel_cmd_all();
+        }
+        else if (you.berserk())
             canned_msg(MSG_TOO_BERSERK);
         else if (ftype == DNGN_ENTER_SHOP) // don't convert to capitalism
             shop();
@@ -1404,13 +1423,9 @@ static bool _prompt_stairs(dungeon_feature_type ygrd, bool down, bool shaft)
 
 static void _take_transporter()
 {
-    map_position_marker *marker = get_position_marker_at(you.pos(),
-                                                         DNGN_TRANSPORTER);
     const coord_def old_pos = you.pos();
-    coord_def dest = INVALID_COORD;
+    coord_def dest = get_transporter_dest(you.pos());
 
-    if (marker)
-        dest = marker->dest;
     ASSERT(dest != old_pos);
 
     if (dest == INVALID_COORD || !you.is_habitable(dest))
@@ -1448,6 +1463,7 @@ static void _take_transporter()
             explored_tracked_feature(DNGN_TRANSPORTER);
         }
         mpr("You enter the transporter and appear at another place.");
+        id_floor_items();
     }
 }
 
@@ -1482,8 +1498,8 @@ static void _take_stairs(bool down)
         // only returns false if no trap was found, which shouldn't happen
         ASSERT(trap_triggered);
         you.turn_is_over = (you.pos() != old_pos);
-        if (!you.turn_is_over)
-            mpr("This passage doesn't lead anywhere!");
+        if (you.turn_is_over)
+            id_floor_items();
     }
     else
     {
@@ -1492,6 +1508,7 @@ static void _take_stairs(bool down)
             start_delay<DescendingStairsDelay>(1);
         else
             start_delay<AscendingStairsDelay>(1);
+        id_floor_items();
     }
 }
 
@@ -1583,7 +1600,7 @@ static void _toggle_travel_speed()
 
 static void _do_rest()
 {
-    if (you.hunger_state <= HS_STARVING && !you_min_hunger())
+    if (apply_starvation_penalties())
     {
         mpr("You're too hungry to rest.");
         return;
@@ -1668,6 +1685,7 @@ static void _do_list_gold()
 void process_command(command_type cmd)
 {
     you.apply_berserk_penalty = true;
+
     switch (cmd)
     {
 #ifdef USE_TILE
@@ -1742,7 +1760,7 @@ void process_command(command_type cmd)
         break;
     }
 #endif
-    case CMD_REST:            _do_rest(); break;
+    case CMD_REST:           _do_rest(); break;
 
     case CMD_GO_UPSTAIRS:
     case CMD_GO_DOWNSTAIRS:
@@ -1808,9 +1826,8 @@ void process_command(command_type cmd)
             break;
         // else fall-through
     case CMD_WAIT:
+        update_acrobat_status();
         you.turn_is_over = true;
-        extract_manticore_spikes("You carefully extract the barbed spikes "
-                                 "from your body.");
         break;
 
     case CMD_PICKUP:
@@ -1869,7 +1886,7 @@ void process_command(command_type cmd)
 
         // Informational commands.
     case CMD_DISPLAY_CHARACTER_STATUS: display_char_status();          break;
-    case CMD_DISPLAY_COMMANDS:         list_commands(0, true);         break;
+    case CMD_DISPLAY_COMMANDS:         list_commands(0); clrscr(); redraw_screen(); break;
     case CMD_DISPLAY_INVENTORY:        display_inventory();            break;
     case CMD_DISPLAY_KNOWN_OBJECTS: check_item_knowledge(); redraw_screen(); break;
     case CMD_DISPLAY_MUTATIONS: display_mutations(); redraw_screen();  break;
@@ -1888,10 +1905,6 @@ void process_command(command_type cmd)
 
     case CMD_DISPLAY_RELIGION:
     {
-#ifdef USE_TILE_WEB
-        if (!you_worship(GOD_NO_GOD))
-            tiles_crt_control show_as_menu(CRT_MENU, "describe_god");
-#endif
         describe_god(you.religion, true);
         redraw_screen();
         break;
@@ -1984,7 +1997,7 @@ void process_command(command_type cmd)
     case CMD_SAVE_GAME:
     {
         const char * const prompt
-            = (Options.restart_after_game && Options.restart_after_save)
+            = (crawl_should_restart(game_exit::save))
               ? "Save game and return to main menu?"
               : "Save game and exit?";
         explicit_keymap map;
@@ -2002,14 +2015,21 @@ void process_command(command_type cmd)
         break;
 
     case CMD_QUIT:
+    {
+        // TODO: msg whether this will start a new game? not very important
         if (crawl_state.disables[DIS_CONFIRMATIONS]
-            || yes_or_no("Are you sure you want to abandon this character and quit the game?"))
+            || yes_or_no("Are you sure you want to abandon this character%s?",
+                Options.newgame_after_quit ? "" : // hard to predict this case
+                (crawl_should_restart(game_exit::quit)
+                                            ? " and return to the main menu"
+                                            : " and quit the game")))
         {
             ouch(INSTANT_DEATH, KILLED_BY_QUITTING);
         }
         else
             canned_msg(MSG_OK);
         break;
+    }
 
     case CMD_LUA_CONSOLE:
         debug_terp_dlua(clua);
@@ -2255,6 +2275,8 @@ void world_reacts()
     if (!crawl_state.game_is_arena())
         player_reacts_to_monsters();
 
+    wu_jian_end_of_turn_effects();
+
     viewwindow();
 
     if (you.cannot_act() && any_messages()
@@ -2272,6 +2294,8 @@ void world_reacts()
     {
         if (you.num_turns < INT_MAX)
             you.num_turns++;
+
+        _update_place_info();
 
         if (env.turns_on_level < INT_MAX)
             env.turns_on_level++;
@@ -2765,7 +2789,7 @@ static void _do_berserk_no_combat_penalty()
             mprf(MSGCH_DURATION, "You feel a strong urge to attack something.");
             break;
         case 4:
-            mprf(MSGCH_DURATION, "You feel your anger subside.");
+            mprf(MSGCH_DURATION, "You feel your anger nearly subside.");
             break;
         case 6:
             mprf(MSGCH_DURATION, "Your blood rage is quickly leaving you.");
@@ -2941,7 +2965,9 @@ static void _move_player(coord_def move)
     }
 
     const coord_def targ = you.pos() + move;
-    bool can_wall_jump = wu_jian_can_wall_jump(targ);
+    string wall_jump_err;
+    bool can_wall_jump = Options.wall_jump_move &&
+                            wu_jian_can_wall_jump(targ, wall_jump_err);
     bool did_wall_jump = false;
     // You can't walk out of bounds!
     if (!in_bounds(targ) && !can_wall_jump)
@@ -2953,6 +2979,11 @@ static void _move_player(coord_def move)
     }
 
     const dungeon_feature_type targ_grid = grd(targ);
+
+    // don't allow wall jump against close doors via movement -- need to use
+    // the ability
+    if (can_wall_jump && feat_is_closed_door(targ_grid))
+        can_wall_jump = false;
 
     const string walkverb = you.airborne()                     ? "fly"
                           : you.swimming()                     ? "swim"
@@ -2985,7 +3016,7 @@ static void _move_player(coord_def move)
 
     if (you.digging)
     {
-        if (you.hunger_state <= HS_STARVING && you.undead_state() == US_ALIVE)
+        if (apply_starvation_penalties())
         {
             you.digging = false;
             canned_msg(MSG_TOO_HUNGRY);
@@ -3120,13 +3151,7 @@ static void _move_player(coord_def move)
 
         if (you.duration[DUR_WATER_HOLD])
         {
-            if (you.can_swim())
-                mpr("You deftly slip free of the water engulfing you.");
-            else //Unless you're a natural swimmer, this takes longer than normal
-            {
-                mpr("With effort, you pull free of the water engulfing you.");
-                you.time_taken = you.time_taken * 3 / 2;
-            }
+            mpr("You slip free of the water engulfing you.");
             you.duration[DUR_WATER_HOLD] = 1;
             you.props.erase("water_holder");
         }
@@ -3163,25 +3188,19 @@ static void _move_player(coord_def move)
             clear_travel_trail();
 
         // clear constriction data
-        you.stop_constricting_all(true);
-        you.stop_being_constricted();
+        you.stop_directly_constricting_all(true);
+        if (you.is_directly_constricted())
+            you.stop_being_constricted();
 
         // Don't trigger traps when confusion causes no move.
         if (you.pos() != targ && targ_pass)
             move_player_to_grid(targ, true);
         else if (can_wall_jump && !running)
         {
-            auto wall_jump_direction = (you.pos() - targ).sgn();
-            auto wall_jump_landing_spot = (you.pos() + wall_jump_direction
-                                           + wall_jump_direction);
-            if (!check_moveto(wall_jump_landing_spot, "wall jump"))
-            {
-                you.turn_is_over = false;
-                return;
-            }
-            did_wall_jump = true;
-            move_player_to_grid(wall_jump_landing_spot, false);
-            wu_jian_wall_jump_effects(initial_position);
+            if (!wu_jian_do_wall_jump(targ, false))
+                return; // wall jump only in the ready state, or cancelled
+            else
+                did_wall_jump = true;
         }
 
         // Now it is safe to apply the swappee's location effects. Doing
@@ -3200,12 +3219,28 @@ static void _move_player(coord_def move)
             // Sometimes decrease duration even when we move.
             if (one_chance_in(3))
                 extract_manticore_spikes("The barbed spikes snap loose.");
+            // But if that failed to end the effect, duration stays the same.
+            if (you.duration[DUR_BARBS])
+                you.duration[DUR_BARBS] += you.time_taken;
+        }
+
+        if (you.duration[DUR_ICY_ARMOUR])
+        {
+            mprf(MSGCH_DURATION, "Your icy armour cracks and falls away as "
+                                 "you move.");
+            you.duration[DUR_ICY_ARMOUR] = 0;
+            you.redraw_armour_class = true;
         }
 
         if (you_are_delayed() && current_delay()->is_run())
             env.travel_trail.push_back(you.pos());
 
-        you.time_taken *= player_movement_speed();
+        // Serpent's Lash = 1 means half of the wall jump time is refunded, so
+        // the modifier is 2 * 1/2 = 1;
+        int wall_jump_modifier =
+            (did_wall_jump && you.attribute[ATTR_SERPENTS_LASH] != 1) ? 2 : 1;
+
+        you.time_taken *= wall_jump_modifier * player_movement_speed();
         you.time_taken = div_rand_round(you.time_taken, 10);
         you.time_taken += additional_time_taken;
 
@@ -3225,10 +3260,11 @@ static void _move_player(coord_def move)
 
     if (!attacking && !targ_pass && !can_wall_jump && !running
         && moving && !beholder && !fmonger
+        && Options.wall_jump_move
         && wu_jian_can_wall_jump_in_principle(targ))
     {
         // do messaging for a failed wall jump
-        wu_jian_can_wall_jump(targ, true);
+        mpr(wall_jump_err);
     }
 
     // BCR - Easy doors single move
@@ -3299,20 +3335,13 @@ static void _move_player(coord_def move)
         did_god_conduct(DID_HASTY, 1, true);
     }
 
-    // Wu Jian's lunge and whirlwind.
-    if (you_worship(GOD_WU_JIAN) && !attacking && !did_wall_jump)
-        wu_jian_trigger_martial_arts(initial_position);
+    bool did_wu_jian_attack = false;
+    if (you_worship(GOD_WU_JIAN) && !attacking)
+        did_wu_jian_attack = wu_jian_post_move_effects(did_wall_jump, initial_position);
 
-    if (you_worship(GOD_WU_JIAN) && !attacking && you.turn_is_over)
-        wu_jian_trigger_serpents_lash(initial_position);
-}
-
-static int _get_num_and_char_keyfun(int &ch)
-{
-    if (ch == CK_BKSP || isadigit(ch) || (unsigned)ch >= 128)
-        return 1;
-
-    return -1;
+    // If you actually moved you are eligible for amulet of the acrobat.
+    if (!attacking && moving && !did_wu_jian_attack && !did_wall_jump)
+        update_acrobat_status();
 }
 
 static int _get_num_and_char(const char* prompt, char* buf, int buf_len)
@@ -3322,7 +3351,7 @@ static int _get_num_and_char(const char* prompt, char* buf, int buf_len)
 
     line_reader reader(buf, buf_len);
 
-    reader.set_keyproc(_get_num_and_char_keyfun);
+    reader.set_keyproc(keyfun_num_and_char);
 #ifdef USE_TILE_WEB
     reader.set_tag("repeat");
 #endif
@@ -3332,8 +3361,10 @@ static int _get_num_and_char(const char* prompt, char* buf, int buf_len)
 
 static void _cancel_cmd_repeat()
 {
-    crawl_state.cancel_cmd_again();
-    crawl_state.cancel_cmd_repeat();
+    // need to force reset these so that history for again is consistent, even
+    // if a repeat didn't get started.
+    crawl_state.cancel_cmd_again("", true);
+    crawl_state.cancel_cmd_repeat("", true);
     flush_input_buffer(FLUSH_REPLAY_SETUP_FAILURE);
 }
 
@@ -3506,10 +3537,9 @@ static void _do_prev_cmd_again()
         return;
     }
 
-    if (crawl_state.prev_cmd == CMD_NO_CMD)
+    if (crawl_state.prev_cmd == CMD_NO_CMD || crawl_state.prev_cmd_keys.empty())
     {
-        mpr("No previous command to re-do.");
-        crawl_state.cancel_cmd_again();
+        crawl_state.cancel_cmd_again("No previous command to re-do.", true);
         crawl_state.cancel_cmd_repeat();
         repeat_again_rec.clear();
         return;

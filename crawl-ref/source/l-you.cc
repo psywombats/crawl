@@ -1,5 +1,7 @@
 #include "AppHdr.h"
 
+#include <cmath>
+
 #include "l-libs.h"
 
 #include "ability.h"
@@ -121,13 +123,15 @@ LUARET1(you_res_fire, number, player_res_fire(false))
 LUARET1(you_res_cold, number, player_res_cold(false))
 LUARET1(you_res_draining, number, player_prot_life(false))
 LUARET1(you_res_shock, number, player_res_electricity(false))
+LUARET1(you_res_drowning, boolean, you.res_water_drowning())
 LUARET1(you_res_mutation, number, you.rmut_from_item(false) ? 1 : 0)
 LUARET1(you_see_invisible, boolean, you.can_see_invisible(false))
 // Returning a number so as not to break existing scripts.
 LUARET1(you_spirit_shield, number, you.spirit_shield(false) ? 1 : 0)
 LUARET1(you_gourmand, boolean, you.gourmand(false))
 LUARET1(you_res_corr, boolean, you.res_corr(false))
-LUARET1(you_like_chunks, number, player_likes_chunks(true))
+// Returning a number so as not to break existing scripts.
+LUARET1(you_like_chunks, number, player_likes_chunks(true) ? 3 : 0)
 LUARET1(you_flying, boolean, you.airborne())
 LUARET1(you_transform, string, you.form == transformation::none
                                ? "" : transform_name())
@@ -187,6 +191,7 @@ LUARET1(you_has_claws, number, you.has_claws(false))
 LUARET1(you_temp_mutations, number, you.attribute[ATTR_TEMP_MUTATIONS])
 LUARET1(you_mutation_overview, string, mutation_overview().c_str())
 
+LUARET1(you_los, number, get_los_radius())
 LUARET1(you_see_cell_rel, boolean,
         you.see_cell(coord_def(luaL_checkint(ls, 1), luaL_checkint(ls, 2)) + you.pos()))
 LUARET1(you_see_cell_no_trans_rel, boolean,
@@ -378,10 +383,8 @@ static int you_gold(lua_State *ls)
 
 static int you_can_consume_corpses(lua_State *ls)
 {
-    lua_pushboolean(ls,
-                     you.get_mutation_level(MUT_HERBIVOROUS) < 3
-                     && !you_foodless()
-                  );
+    lua_pushboolean(ls, you.get_mutation_level(MUT_HERBIVOROUS) == 0
+                        && !you_foodless());
     return 1;
 }
 
@@ -488,22 +491,22 @@ LUAFN(you_is_level_on_stack)
 
 LUAFN(you_skill)
 {
-    skill_type sk = str_to_skill(luaL_checkstring(ls, 1));
+    skill_type sk = str_to_skill_safe(luaL_checkstring(ls, 1));
 
     PLUARET(number, you.skill(sk, 10) * 0.1);
 }
 
 LUAFN(you_base_skill)
 {
-    skill_type sk = str_to_skill(luaL_checkstring(ls, 1));
+    skill_type sk = str_to_skill_safe(luaL_checkstring(ls, 1));
 
     PLUARET(number, you.skill(sk, 10, true) * 0.1);
 }
 
 LUAFN(you_train_skill)
 {
-    skill_type sk = str_to_skill(luaL_checkstring(ls, 1));
-    if (lua_gettop(ls) >= 2 && you.can_train[sk])
+    skill_type sk = str_to_skill_safe(luaL_checkstring(ls, 1));
+    if (lua_gettop(ls) >= 2 && can_enable_skill(sk))
     {
         you.train[sk] = min(max((training_status)luaL_checkint(ls, 2),
                                                  TRAINING_DISABLED),
@@ -514,9 +517,36 @@ LUAFN(you_train_skill)
     PLUARET(number, you.train[sk]);
 }
 
+LUAFN(you_get_training_target)
+{
+    string sk_name = luaL_checkstring(ls, 1);
+    skill_type sk = str_to_skill(sk_name);
+    if (sk == SK_NONE)
+    {
+        string err = make_stringf("Unknown skill name `%s`", sk_name.c_str());
+        return luaL_argerror(ls, 1, err.c_str());
+    }
+
+    PLUARET(number, (double) you.get_training_target(sk) * 0.1);
+}
+
+LUAFN(you_set_training_target)
+{
+    string sk_name = luaL_checkstring(ls, 1);
+    skill_type sk = str_to_skill(sk_name);
+    if (sk == SK_NONE)
+    {
+        string err = make_stringf("Unknown skill name `%s`", sk_name.c_str());
+        return luaL_argerror(ls, 1, err.c_str());
+    }
+    else if (!you.set_training_target(sk, luaL_checknumber(ls, 2), true))
+        return 0; // not a full-on error
+    return 1;
+}
+
 LUAFN(you_skill_cost)
 {
-    skill_type sk = str_to_skill(luaL_checkstring(ls, 1));
+    skill_type sk = str_to_skill_safe(luaL_checkstring(ls, 1));
     float cost = scaled_skill_cost(sk);
     if (cost == 0)
     {
@@ -536,7 +566,7 @@ LUAFN(you_status)
     status_info inf;
     for (unsigned i = 0; i <= STATUS_LAST_STATUS; ++i)
     {
-        if (fill_status_info(i, &inf) && !inf.short_text.empty())
+        if (fill_status_info(i, inf) && !inf.short_text.empty())
         {
             if (which)
             {
@@ -596,6 +626,8 @@ static const struct luaL_reg you_clib[] =
     { "best_skill",   you_best_skill },
     { "train_skill",  you_train_skill },
     { "skill_cost"  , you_skill_cost },
+    { "get_training_target", you_get_training_target },
+    { "set_training_target", you_set_training_target },
     { "xl"          , you_xl },
     { "xl_progress" , you_xl_progress },
     { "res_poison"  , you_res_poison },
@@ -603,6 +635,7 @@ static const struct luaL_reg you_clib[] =
     { "res_cold"    , you_res_cold   },
     { "res_draining", you_res_draining },
     { "res_shock"   , you_res_shock },
+    { "res_drowning", you_res_drowning },
     { "res_mutation", you_res_mutation },
     { "see_invisible", you_see_invisible },
     { "spirit_shield", you_spirit_shield },
@@ -670,6 +703,7 @@ static const struct luaL_reg you_clib[] =
     { "can_smell",         you_can_smell },
     { "has_claws",         you_has_claws },
 
+    { "los",               you_los },
     { "see_cell",          you_see_cell_rel },
     { "see_cell_no_trans", you_see_cell_no_trans_rel },
     { "see_cell_solid",    you_see_cell_solid_rel },

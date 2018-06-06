@@ -73,36 +73,24 @@ static const mutation_def mut_data[] =
   {"You feel less resistant to poisons.", "", ""},
 },
 
-{ MUT_CARNIVOROUS, 0, 3, mutflag::good, false,
+{ MUT_CARNIVOROUS, 0, 1, mutflag::good, false,
   "carnivore",
 
-  {"Your digestive system is specialised to digest meat.",
-   "Your digestive system is highly specialised to digest meat.",
-   "You are carnivorous and can eat meat at any time."},
+  {"You are carnivorous and can eat meat at any time.", "", ""},
 
-  {"You hunger for flesh.",
-   "You hunger for flesh.",
-   "You hunger for flesh."},
+  {"You hunger for flesh.", "", ""},
 
-  {"You feel able to eat a more balanced diet.",
-   "You feel able to eat a more balanced diet.",
-   "You feel able to eat a more balanced diet."},
+  {"You feel able to eat a more balanced diet.", "", ""},
 },
 
-{ MUT_HERBIVOROUS, 0, 3, mutflag::bad, false,
+{ MUT_HERBIVOROUS, 0, 1, mutflag::bad, false,
   "herbivore",
 
-  {"You digest meat inefficiently.",
-   "You digest meat very inefficiently.",
-   "You are a herbivore."},
+  {"You are a herbivore.", "", ""},
 
-  {"You hunger for vegetation.",
-   "You hunger for vegetation.",
-   "You hunger for vegetation."},
+  {"You hunger for vegetation.", "", ""},
 
-  {"You feel able to eat a more balanced diet.",
-   "You feel able to eat a more balanced diet.",
-   "You feel able to eat a more balanced diet."},
+  {"You feel able to eat a more balanced diet."},
 },
 
 { MUT_HEAT_RESISTANCE, 4, 3, mutflag::good, true,
@@ -250,7 +238,7 @@ static const mutation_def mut_data[] =
   "slow metabolism",
 
   {"You have a slow metabolism.",
-   "You need consume almost no food.",
+   "You need to consume almost no food.",
    ""},
 
   {"Your metabolism slows.",
@@ -894,7 +882,7 @@ static const mutation_def mut_data[] =
   "strong legs",
 
   {"You can hop short distances.",
-   "You can hop longer distances.",
+   "You can hop long distances.",
    ""},
 
   {"", "Your legs feel stronger.", ""},
@@ -1847,7 +1835,7 @@ static const mutation_def mut_data[] =
     "Your ability to control magic is less disrupted."},
 },
 
-{ MUT_MP_WANDS, 7, 1, mutflag::bad, false,
+{ MUT_MP_WANDS, 7, 1, mutflag::good, false,
   "MP-powered wands",
 
   {"You expend magic power (3 MP) to strengthen your wands.", "", ""},

@@ -49,9 +49,9 @@
 static species_type _get_hints_species(unsigned int type);
 static job_type     _get_hints_job(unsigned int type);
 static bool         _hints_feat_interesting(dungeon_feature_type feat);
-static void         _hints_describe_disturbance(int x, int y);
-static void         _hints_describe_cloud(int x, int y);
-static void         _hints_describe_feature(int x, int y);
+static void         _hints_describe_disturbance(int x, int y, ostringstream& ostr);
+static void         _hints_describe_cloud(int x, int y, ostringstream& ostr);
+static void         _hints_describe_feature(int x, int y, ostringstream& ostr);
 static bool         _water_is_disturbed(int x, int y);
 static void         _hints_healing_reminder();
 
@@ -212,7 +212,7 @@ again:
 #ifdef USE_TILE_WEB
             tiles.send_exit_reason("cancel");
 #endif
-            game_ended();
+            game_ended(game_exit::abort);
         case 'X':
             cprintf("\nGoodbye!");
 #ifdef USE_TILE_WEB
@@ -784,18 +784,12 @@ static bool _advise_use_wand()
         if (!item_type_known(obj))
             return true;
 
-        // Empty wands are no good.
-        if (is_known_empty_wand(obj))
-            continue;
-
         // Can it be used to fight?
         switch (obj.sub_type)
         {
         case WAND_FLAME:
         case WAND_PARALYSIS:
-        case WAND_CONFUSION:
         case WAND_ICEBLAST:
-        case WAND_LIGHTNING:
         case WAND_ENSLAVEMENT:
         case WAND_ACID:
         case WAND_RANDOM_EFFECTS:
@@ -1155,10 +1149,8 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
              << "</w>'). Type </console>"
                 "<tiles>. Simply <w>left-click</w> on it, or press </tiles>"
                 "<w>%</w> to evoke it.\n"
-                "Until you fully identify a wand, either with a scroll of "
-                "identification or by zapping it after gaining some Evocations "
-                "skill, you won't know how many charges it has, and you'll "
-                "waste a few charges every time you evoke it.";
+                "If you find more wands of the same type, they'll merge "
+                "into this wand and add charges to it.";
         cmd.push_back(CMD_EVOKE);
         break;
 
@@ -1283,7 +1275,7 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
              << "</w>')</console>"
                 ". You can eat it by typing <w>e</w>"
                 "<tiles> or by <w>left-clicking</w> on it</tiles>"
-                ". However, it is usually best to conserve rations and fruit, "
+                ". However, it is usually best to conserve rations, "
                 "since raw meat from corpses is generally plentiful.";
         break;
 
@@ -1327,7 +1319,7 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
         break;
 
     case HINT_SEEN_JEWELLERY:
-        text << "You have picked up a a piece of jewellery, either a ring"
+        text << "You have picked up a piece of jewellery, either a ring"
              << "<console> ('<w>"
              << stringize_glyph(get_item_symbol(SHOW_ITEM_RING))
              << "</w>')</console>"
@@ -1338,7 +1330,7 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
              << ". Type <w>%</w> to put it on and <w>%</w> to remove "
                 "it. You can view its properties from your <w>%</w>nventory</console>"
              << "<tiles>. You can click on it to put it on, and click again "
-                "to remove it. By <w>right-clicking> on it, you can view its "
+                "to remove it. By <w>right-clicking</w> on it, you can view its "
                 "properties</tiles>.";
         cmd.push_back(CMD_WEAR_JEWELLERY);
         cmd.push_back(CMD_REMOVE_JEWELLERY);
@@ -2554,7 +2546,7 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
     case HINT_GLOWING:
         text << "You've accumulated so much magical contamination that you're "
                 "glowing! You usually acquire magical contamination from using "
-                "some powerful magics, like invisibility or haste, or from "
+                "some powerful magics, like invisibility, or from "
                 "miscasting spells. ";
 
         if (!player_severe_contamination())
@@ -3495,20 +3487,21 @@ static bool _hints_feat_interesting(dungeon_feature_type feat)
            || feat_is_statuelike(feat);
 }
 
-void hints_describe_pos(int x, int y)
+string hints_describe_pos(int x, int y)
 {
     cgotoxy(1, wherey());
-    _hints_describe_disturbance(x, y);
-    _hints_describe_cloud(x, y);
-    _hints_describe_feature(x, y);
+    ostringstream ostr;
+    _hints_describe_disturbance(x, y, ostr);
+    _hints_describe_cloud(x, y, ostr);
+    _hints_describe_feature(x, y, ostr);
+    return ostr.str();
 }
 
-static void _hints_describe_feature(int x, int y)
+static void _hints_describe_feature(int x, int y, ostringstream& ostr)
 {
     const dungeon_feature_type feat = grd[x][y];
     const coord_def            where(x, y);
 
-    ostringstream ostr;
     ostr << "\n\n<" << colour_to_str(channel_to_colour(MSGCH_TUTORIAL)) << ">";
 
     bool boring = false;
@@ -3721,13 +3714,9 @@ static void _hints_describe_feature(int x, int y)
     }
 
     ostr << "</" << colour_to_str(channel_to_colour(MSGCH_TUTORIAL)) << ">";
-
-    string broken = ostr.str();
-    linebreak_string(broken, _get_hints_cols());
-    display_tagged_block(broken);
 }
 
-static void _hints_describe_cloud(int x, int y)
+static void _hints_describe_cloud(int x, int y, ostringstream& ostr)
 {
     cloud_struct* cloud = cloud_at(coord_def(x, y));
     if (!cloud)
@@ -3735,8 +3724,6 @@ static void _hints_describe_cloud(int x, int y)
 
     const string cname = cloud->cloud_name(true);
     const cloud_type ctype = cloud->type;
-
-    ostringstream ostr;
 
     ostr << "\n\n<" << colour_to_str(channel_to_colour(MSGCH_TUTORIAL)) << ">";
 
@@ -3771,18 +3758,12 @@ static void _hints_describe_cloud(int x, int y)
     }
 
     ostr << "</" << colour_to_str(channel_to_colour(MSGCH_TUTORIAL)) << ">";
-
-    string broken = ostr.str();
-    linebreak_string(broken, _get_hints_cols());
-    display_tagged_block(broken);
 }
 
-static void _hints_describe_disturbance(int x, int y)
+static void _hints_describe_disturbance(int x, int y, ostringstream& ostr)
 {
     if (!_water_is_disturbed(x, y))
         return;
-
-    ostringstream ostr;
 
     ostr << "\n\n<" << colour_to_str(channel_to_colour(MSGCH_TUTORIAL)) << ">";
 
@@ -3793,10 +3774,6 @@ static void _hints_describe_disturbance(int x, int y)
             "it manually if you wish to.";
 
     ostr << "</" << colour_to_str(channel_to_colour(MSGCH_TUTORIAL)) << ">";
-
-    string broken = ostr.str();
-    linebreak_string(broken, _get_hints_cols());
-    display_tagged_block(broken);
 }
 
 static bool _water_is_disturbed(int x, int y)
@@ -4006,5 +3983,11 @@ void tutorial_msg(const char *key, bool end)
     for (const string &chunk : split_string("\n", text, false))
         mprf(MSGCH_TUTORIAL, "%s", chunk.c_str());
 
-    stop_running();
+    // tutorial_msg can get called in an vault epilogue during --builddb,
+    // which can lead to a crash on tiles builds in runrest::stop as
+    // there is no `tiles`. This seemed like the best place to fix this.
+    #ifdef USE_TILE_LOCAL
+    if (!crawl_state.tiles_disabled)
+    #endif
+        stop_running();
 }

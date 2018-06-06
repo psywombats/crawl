@@ -609,7 +609,6 @@ bool unnotice_feature(const level_pos &pos)
 
 void display_overview()
 {
-    clrscr();
     string disp = overview_description_string(true);
     linebreak_string(disp, get_number_of_cols());
     int flags = MF_ANYPRINTABLE | MF_NOSELECT;
@@ -840,6 +839,8 @@ void set_unique_annotation(monster* mons, const level_id level)
 
 void remove_unique_annotation(monster* mons)
 {
+    if (mons->is_illusion()) // Fake monsters don't clear real annotations
+        return;
     set<level_id> affected_levels;
     string name = unique_name(mons);
     for (auto i = auto_unique_annotations.begin();

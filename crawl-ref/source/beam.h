@@ -151,9 +151,7 @@ struct bolt
 
     ray_def     ray;             // shoot on this specific ray
 
-#ifdef USE_TILE
-    int         tile_beam;
-#endif
+    int         tile_beam; // only used if USE_TILE is defined
 
 private:
     bool can_see_invis = false;
@@ -184,7 +182,8 @@ public:
     bool can_affect_actor(const actor *act) const;
     bool can_affect_wall(const coord_def& p) const;
     bool ignores_monster(const monster* mon) const;
-    bool can_knockback(const actor *act = nullptr, int dam = -1) const;
+    bool can_knockback(const actor &act, int dam = -1) const;
+    bool can_pull(const actor &act, int dam = -1) const;
     bool god_cares() const; // Will the god be unforgiving about this beam?
     bool is_harmless(const monster* mon) const;
     bool nasty_to(const monster* mon) const;
@@ -208,7 +207,6 @@ public:
 private:
     void do_fire();
     void initialise_fire();
-    void apply_beam_conducts();
 
     // Lots of properties of the beam.
     coord_def pos() const;
@@ -268,6 +266,7 @@ private:
     void enchantment_affect_monster(monster* mon);
 public:
     mon_resist_type apply_enchantment_to_monster(monster* mon);
+    void apply_beam_conducts();
 private:
     void apply_bolt_paralysis(monster* mons);
     void apply_bolt_petrify(monster* mons);
@@ -281,6 +280,7 @@ private:
     void internal_ouch(int dam);
     // for both
     void knockback_actor(actor *act, int dam);
+    void pull_actor(actor *act, int dam);
 
     // tracers
     void tracer_affect_player();

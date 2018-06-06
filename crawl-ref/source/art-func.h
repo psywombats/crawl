@@ -495,13 +495,8 @@ static void _VAMPIRES_TOOTH_equip(item_def *item, bool *show_msgs, bool unmeld)
 
 static void _VARIABILITY_world_reacts(item_def *item)
 {
-    if (x_chance_in_y(2, 5))
-        item->plus += random_choose(+1, -1);
-
-    if (item->plus < -4)
-        item->plus = -4;
-    else if (item->plus > 16)
-        item->plus = 16;
+    item->plus += random_choose(0, 0, 0, +1, -1);
+    item->plus = max((short)-4, min((short)16, item->plus));
 }
 
 ///////////////////////////////////////////////////
@@ -1265,7 +1260,8 @@ static void _ETHERIC_CAGE_world_reacts(item_def *item)
     const int delay = you.time_taken;
     ASSERT(delay > 0);
 
-    // coinflip() chance of 1 MP per turn.
+    // coinflip() chance of 1 MP per turn. Be sure to change
+    // _get_overview_resistances to match!
     if (player_regenerates_mp())
         inc_mp(binomial(div_rand_round(delay, BASELINE_DELAY), 1, 2));
 }

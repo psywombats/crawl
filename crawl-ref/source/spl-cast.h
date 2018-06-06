@@ -85,7 +85,7 @@ int stepdown_spellpower(int power, int scale = 1);
 int calc_spell_power(spell_type spell, bool apply_intel,
                      bool fail_rate_chk = false, bool cap_power = true,
                      int scale = 1);
-int calc_spell_range(spell_type spell, int power = 0);
+int calc_spell_range(spell_type spell, int power = 0, bool allow_bonus = true);
 
 bool cast_a_spell(bool check_range, spell_type spell = SPELL_NO_SPELL);
 
@@ -118,6 +118,7 @@ string spell_range_string(spell_type spell);
 string range_string(int range, int maxrange, char32_t caster_char);
 string spell_schools_string(spell_type spell);
 string spell_hunger_string(spell_type spell);
+string spell_failure_rate_string(spell_type spell);
 string spell_noise_string(spell_type spell, int chop_wiz_display_width = 0);
 
 void spell_skills(spell_type spell, set<skill_type> &skills);

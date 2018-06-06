@@ -334,7 +334,8 @@ static int _calc_player_experience(const monster* mons)
 }
 
 static void _give_player_experience(int experience, killer_type killer,
-                                    bool pet_kill, bool was_visible)
+                                    bool pet_kill, bool was_visible,
+                                    xp_tracking_type xp_tracking)
 {
     if (experience <= 0 || crawl_state.game_is_arena())
         return;
@@ -358,6 +359,26 @@ static void _give_player_experience(int experience, killer_type killer,
     curr_PlaceInfo += delta;
     curr_PlaceInfo.assert_validity();
 
+    LevelXPInfo& curr_xp_info = you.get_level_xp_info();
+    LevelXPInfo xp_delta;
+
+    if (xp_tracking == XP_SPAWNED)
+    {
+        xp_delta.spawn_xp += exp_gain;
+        xp_delta.spawn_count++;
+    }
+    else if (xp_tracking == XP_GENERATED)
+    {
+        xp_delta.generated_xp += exp_gain;
+        xp_delta.generated_count++;
+    }
+
+    you.global_xp_info += xp_delta;
+    you.global_xp_info.assert_validity();
+
+    curr_xp_info += xp_delta;
+    curr_xp_info.assert_validity();
+
     // Give a message for monsters dying out of sight.
     if (exp_gain > 0 && !was_visible)
         mpr("You feel a bit more experienced.");
@@ -368,9 +389,11 @@ static void _give_player_experience(int experience, killer_type killer,
 
 static void _give_experience(int player_exp, int monster_exp,
                              killer_type killer, int killer_index,
-                             bool pet_kill, bool was_visible)
+                             bool pet_kill, bool was_visible,
+                             xp_tracking_type xp_tracking)
 {
-    _give_player_experience(player_exp, killer, pet_kill, was_visible);
+    _give_player_experience(player_exp, killer, pet_kill, was_visible,
+            xp_tracking);
     _give_monster_experience(monster_exp, killer_index);
 }
 
@@ -468,13 +491,16 @@ static void _create_monster_hide(const item_def &corpse, bool silent)
     }
 
     move_item_to_grid(&o, pos);
-    if (you.see_cell(pos) && !silent)
+
+    // Don't display this message if the scales were dropped over
+    // lava/deep water, because then they are hardly intact.
+    if (you.see_cell(pos) && !silent && !feat_eliminates_items(grd(pos)))
     {
         // XXX: tweak for uniques/named monsters, somehow?
         mprf("%s %s intact enough to wear.",
              item.name(DESC_THE).c_str(),
              mons_genus(mtyp) == MONS_DRAGON ? "are"  // scales are
-                                             : "is"); // hide is
+                                             : "is"); // troll armour is
                                                       // XXX: refactor
     }
 
@@ -1800,12 +1826,6 @@ static void _fire_kill_conducts(monster &mons, killer_type killer,
     // Cheibriados hates fast monsters.
     if (cheibriados_thinks_mons_is_fast(mons) && !mons.cannot_move())
         did_kill_conduct(DID_KILL_FAST, mons);
-
-    // Dithmenos hates sources of fire.
-    // (This is *after* the holy so that the right order of
-    //  messages appears.)
-    if (mons_is_fiery(mons))
-        did_kill_conduct(DID_KILL_FIERY, mons);
 }
 
 item_def* monster_die(monster& mons, const actor *killer, bool silent,
@@ -1951,7 +1971,7 @@ item_def* monster_die(monster& mons, killer_type killer,
     }
 
     mons_clear_trapping_net(&mons);
-    mons.stop_constricting_all(false);
+    mons.stop_constricting_all();
     mons.stop_being_constricted();
 
     you.remove_beholder(mons);
@@ -2325,7 +2345,7 @@ item_def* monster_die(monster& mons, killer_type killer,
                 // perhaps this should go to its own function
                 if (mp_heal
                     && have_passive(passive_t::bottle_mp)
-                    && !you_foodless_normally())
+                    && !you_foodless(false))
                 {
                     simple_god_message(" collects the excess magic power.");
                     you.attribute[ATTR_PAKELLAS_EXTRA_MP] -= mp_heal;
@@ -2737,7 +2757,7 @@ item_def* monster_die(monster& mons, killer_type killer,
         if (corpse && _reaping(&mons))
             corpse = nullptr;
         _give_experience(player_xp, monster_xp, killer, killer_index,
-                         pet_kill, was_visible);
+                         pet_kill, was_visible, mons.xp_tracking);
         crawl_state.dec_mon_acting(&mons);
 
         return corpse;
@@ -2819,8 +2839,8 @@ item_def* monster_die(monster& mons, killer_type killer,
 
     if (!mons_reset)
     {
-        _give_experience(player_xp, monster_xp, killer, killer_index, pet_kill,
-                         was_visible);
+        _give_experience(player_xp, monster_xp, killer, killer_index,
+                pet_kill, was_visible, mons.xp_tracking);
     }
     return corpse;
 }
@@ -3387,8 +3407,15 @@ void elven_twin_died(monster* twin, bool in_transit, killer_type killer, int kil
 
     // Upgrade the spellbook here, as elven_twin_energize
     // may not be called due to lack of visibility.
-    if (mons_is_mons_class(mons, MONS_DOWAN))
+    if (mons_is_mons_class(mons, MONS_DOWAN)
+                                        && !(mons->flags & MF_POLYMORPHED))
     {
+        // Don't mess with Dowan's spells if he's been polymorphed: most
+        // possible forms have no spells, and the few that do (e.g. boggart)
+        // have way more fun spells than this. If this ever changes, the
+        // following code would need to be rewritten, as it'll crash.
+        // TODO: this is a fairly brittle way of upgrading Dowan...
+        ASSERT(mons->spells.size() >= 5);
         mons->spells[0].spell = SPELL_STONE_ARROW;
         mons->spells[1].spell = SPELL_THROW_ICICLE;
         mons->spells[3].spell = SPELL_BLINK;

@@ -24,6 +24,7 @@
 #include "stringutil.h"
 #include "tags.h"
 #include "terrain.h"
+#include "tiles-build-specific.h"
 #include "travel.h"
 #include "view.h"
 
@@ -34,8 +35,11 @@ static bool _mon_needs_auto_exclude(const monster* mon, bool sleepy = false)
 {
     // These include the base monster's name in their name, but we don't
     // want things in the auto_exclude option to match them.
-    if (mon->type == MONS_PILLAR_OF_SALT || mon->type == MONS_BLOCK_OF_ICE)
+    if (mon->type == MONS_PILLAR_OF_SALT || mon->type == MONS_BLOCK_OF_ICE
+        || mon->type == MONS_TEST_STATUE)
+    {
         return false;
+    }
 
     if (mon->is_stationary())
         return !sleepy;
@@ -370,8 +374,7 @@ static void _tile_exclude_gmap_update(const coord_def &p)
         for (int y = -8; y <= 8; y++)
         {
             const coord_def pc(p.x + x, p.y + y);
-            if (in_bounds(pc))
-                tiles.update_minimap(pc);
+            tiles.update_minimap(pc);
         }
 }
 #endif
@@ -427,7 +430,7 @@ void clear_excludes()
 static void _exclude_gate(const coord_def &p, bool del = false)
 {
     set<coord_def> all_doors;
-    find_connected_identical(p, all_doors);
+    find_connected_identical(p, all_doors, true);
     for (const auto &dc : all_doors)
     {
         if (del)
@@ -443,7 +446,7 @@ void cycle_exclude_radius(const coord_def &p)
 {
     if (travel_exclude *exc = curr_excludes.get_exclude_root(p))
     {
-        if (feat_is_door(grd(p)))
+        if (feat_is_door(grd(p)) && env.map_knowledge(p).known())
         {
             _exclude_gate(p, exc->radius == 0);
             return;
@@ -576,7 +579,7 @@ string exclude_set::get_exclusion_desc()
         if (ma != auto_unique_annotations.end())
             continue;
 
-        if (ex.desc != "")
+        if (!ex.desc.empty())
             desc.push_back(ex.desc);
         else
             count_other++;

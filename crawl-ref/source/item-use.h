@@ -25,7 +25,8 @@ bool god_hates_brand(const int brand);
 
 bool safe_to_remove(const item_def &item, bool quiet = false);
 
-bool puton_ring(int slot = -1, bool allow_prompt = true);
+bool puton_ring(int slot = -1, bool allow_prompt = true,
+                bool check_for_inscriptions = true);
 
 void read(item_def* scroll = nullptr);
 void read_scroll(item_def& scroll);
@@ -55,12 +56,3 @@ bool enchant_armour(int &ac_change, bool quiet, item_def &arm);
 void random_uselessness();
 
 void prompt_inscribe_item();
-
-#ifdef USE_TILE
-void tile_item_use_floor(int idx);
-void tile_item_pickup(int idx, bool part);
-void tile_item_drop(int idx, bool partdrop);
-void tile_item_eat_floor(int idx);
-void tile_item_use(int idx);
-void tile_item_use_secondary(int idx);
-#endif

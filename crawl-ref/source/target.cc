@@ -11,12 +11,14 @@
 #include "english.h"
 #include "env.h"
 #include "fight.h"
+#include "god-abil.h"
 #include "libutil.h"
 #include "los-def.h"
 #include "losglobal.h"
 #include "mon-tentacle.h"
 #include "spl-damage.h"
 #include "spl-goditem.h" // player_is_debuffable
+#include "spl-other.h"
 #include "terrain.h"
 
 #define notify_fail(x) (why_not = (x), false)
@@ -39,6 +41,11 @@ bool targeter::set_aim(coord_def a)
 }
 
 bool targeter::can_affect_outside_range()
+{
+    return false;
+}
+
+bool targeter::can_affect_unseen()
 {
     return false;
 }
@@ -468,19 +475,73 @@ targeter_walljump::targeter_walljump() :
 {
 }
 
+bool targeter_walljump::valid_aim(coord_def a)
+{
+    return wu_jian_can_wall_jump(a, why_not);
+}
+
 aff_type targeter_walljump::is_affected(coord_def loc)
 {
     if (!valid_aim(aim))
         return AFF_NO;
 
-    if ((loc - aim).rdist() > 9)
-        return AFF_NO;
+    auto wall_jump_direction = (you.pos() - aim).sgn();
+    auto wall_jump_landing_spot = (you.pos() + wall_jump_direction
+                                   + wall_jump_direction);
+    if (loc == wall_jump_landing_spot)
+        return AFF_YES;
 
-    coord_def centre(9,9);
-    if (exp_map_min(loc - aim + centre) < INT_MAX)
-        return AFF_NO;
+    if (loc.distance_from(wall_jump_landing_spot) == 1 && monster_at(loc))
+        return AFF_YES;
 
-    return AFF_YES;
+    return AFF_NO;
+}
+
+targeter_passwall::targeter_passwall(int max_range) :
+    targeter_smite(&you, max_range, 1, 1, true, nullptr)
+{
+}
+
+bool targeter_passwall::valid_aim(coord_def a)
+{
+    passwall_path tmp_path(you, a - you.pos(), range);
+    string failmsg;
+    tmp_path.is_valid(&failmsg);
+    if (!tmp_path.spell_succeeds())
+        return notify_fail(failmsg);
+    return true;
+}
+
+bool targeter_passwall::set_aim(coord_def a)
+{
+    cur_path = make_unique<passwall_path>(you, a - you.pos(), range);
+    return true;
+}
+
+aff_type targeter_passwall::is_affected(coord_def loc)
+{
+    if (!cur_path)
+        return AFF_NO;
+    // not very efficient...
+    for (auto p : cur_path->path)
+        if (p == loc)
+            return AFF_YES;
+    return AFF_NO;
+}
+
+bool targeter_passwall::can_affect_outside_range()
+{
+    return true;
+}
+
+bool targeter_passwall::can_affect_unseen()
+{
+    return true;
+}
+
+bool targeter_passwall::affects_monster(const monster_info& mon)
+{
+    return false;
 }
 
 targeter_transference::targeter_transference(const actor* act, int aoe) :
@@ -523,11 +584,8 @@ bool targeter_fragment::valid_aim(coord_def a)
 
     bolt tempbeam;
     bool temp;
-    if (!setup_fragmentation_beam(tempbeam, pow, agent, a, false,
-                                  true, true, nullptr, temp, temp))
-    {
+    if (!setup_fragmentation_beam(tempbeam, pow, agent, a, true, nullptr, temp))
         return notify_fail("You cannot affect that.");
-    }
     return true;
 }
 
@@ -539,12 +597,9 @@ bool targeter_fragment::set_aim(coord_def a)
     bolt tempbeam;
     bool temp;
 
-    if (setup_fragmentation_beam(tempbeam, pow, agent, a, false,
-                                 false, true, nullptr, temp, temp))
+    if (setup_fragmentation_beam(tempbeam, pow, agent, a, true, nullptr, temp))
     {
         exp_range_min = tempbeam.ex_size;
-        setup_fragmentation_beam(tempbeam, pow, agent, a, false,
-                                 true, true, nullptr, temp, temp);
         exp_range_max = tempbeam.ex_size;
     }
     else
@@ -553,7 +608,6 @@ bool targeter_fragment::set_aim(coord_def a)
         return false;
     }
 
-    coord_def centre(9,9);
     bolt beam;
     beam.target = a;
     beam.use_target_as_pos = true;
@@ -1004,7 +1058,6 @@ targeter_shadow_step::targeter_shadow_step(const actor* act, int r) :
 
 bool targeter_shadow_step::valid_aim(coord_def a)
 {
-    coord_def c, shadow_step_pos;
     ray_def ray;
 
     if (origin == a)
@@ -1371,6 +1424,9 @@ aff_type targeter_shotgun::is_affected(coord_def loc)
 targeter_monster_sequence::targeter_monster_sequence(const actor *act, int pow, int r) :
                           targeter_beam(act, r, ZAP_DEBUGGING_RAY, pow, 0, 0)
 {
+    // for `path_taken` to be set properly, the beam needs to be piercing, and
+    // ZAP_DEBUGGING_RAY is not.
+    beam.pierce = true;
 }
 
 bool targeter_monster_sequence::set_aim(coord_def a)

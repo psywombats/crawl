@@ -265,6 +265,19 @@ Magic Resistance
   able to affect you. You can get a rough idea of your current MR by pressing
   '@' or '%'.
 
+Size
+  Different species have different sizes: Spriggans and Felids are very small;
+  Halflings and Kobolds are small; Ogres and Trolls are large; Nagas and Centaurs
+  are large with a medium torso; all other species are medium-sized. Many
+  transmutations will change your size too. Size affects your evasion: the
+  smaller your character the more evasive it is. On the other hand, characters
+  of larger than medium size do not suffer the usual attack penalties when
+  standing in shallow water. Characters of smaller than medium size will have
+  problems with some larger weapons. Very small characters and large characters
+  are not able to use most types of armour. Players and monsters can only
+  constrict foes of the same size or smaller. In the dungeon you can also meet
+  tiny, very large and giant creatures.
+
 Stealth
   High stealth allows your character to move through the dungeon undetected.
   It is affected by your species, dexterity, Stealth skill, and the encumbrance
@@ -621,8 +634,8 @@ adventures, how they are displayed, and what commands there are to use them:
 /        wands          (use 'V' to evoke)
 =        rings          (use 'P'ut on and 'R'emove)
 "        amulets        (use 'P'ut on and 'R'emove)
-\\ or |  staves, rods   (use 'w'ield for staves; 'v' for evoking rods)
-\+ or :  spellbooks     (use 'r'ead and 'M'emorise and 'z'ap)
+\|        staves         (use 'w'ield)
+:        spellbooks     (use 'r'ead and 'M'emorise and 'z'ap)
 }        miscellaneous  (use 'V' for evoking from the inventory)
 $        gold           (use 'g' to pick up)
 =======  =============  ================================================
@@ -879,15 +892,6 @@ harness their special power, using a combination of the Evocations skill and the
 skill specific to the staff's type. Staves which do not enhance a destructive
 magic school tend to have no combat powers at all.
 
-\| Rods
-========================================
-
-Rods ('|') hold unique spells that you can evoke while wielding the rod,
-using the 'v' command. The effectiveness of these spells is increased by
-Evocations skill. They have a pool of magical energy which regenerates
-according to the rod's enchantment (which can be increased using scrolls of
-recharging) and your Evocations skill.
-
 : Books
 ========================================
 
@@ -1084,16 +1088,14 @@ can be controlled. Many mutations are actually beneficial to your character, but
 there are plenty of nasty ones as well. Many mutations have multiple levels,
 each of which counts as a single mutation.
 
-You can also become mutated by overusing certain powerful enchantments,
-particularly 'Haste' and 'Invisibility', as your system absorbs too much magical
-energy. A single use of those effects will never cause dangerous levels of magical
+You can also become mutated by overusing certain powerful spells, particularly
+'Invisibility' and 'Irradiate', as your system absorbs too much magical energy.
+A single use of those effects will never cause dangerous levels of magical
 contamination, but multiple uses in short succession, or usage with existing
 contamination from other sources (e.g. from miscasting spells) can cause trouble.
-Mutations from magical contamination are almost always harmful.
-
-Mutations can also be caused by specific potions, very rare trap effects, or
-spells cast by powerful enemies found deep in the dungeon. A few types of monsters
-have mutagenic corpses; these will appear in magenta by default.
+Mutations from magical contamination are almost always harmful. Mutations can
+also be caused by specific potions or by spells cast by powerful enemies found
+deep in the dungeon.
 
 It is more difficult to get rid of bad mutations than to get one. Using potions
 of mutations will remove a number of your current mutations, but will give you
@@ -1387,10 +1389,9 @@ turns up, like a dragon on the second dungeon level. These are not bugs!
 Actually, they are part of the randomness design goal. In this case, they also
 serve as additional motivation: in many situations, the OOD monster can be
 survived somehow, and the mental bond with the character will then surely grow.
-OOD monsters also help to keep players on their toes by making shallow, or
-cleared, levels still not trivial. In a similar vein, early trips to the Abyss
-are not deficits: there's more than one way out, and successfully escaping is
-exciting for anyone.
+OOD monsters also help to keep players on their toes by making shallow levels
+still not trivial. In a similar vein, early trips to the Abyss are not deficits:
+there's more than one way out, and successfully escaping is exciting for anyone.
 
 ########################################
 Appendices
@@ -1515,14 +1516,14 @@ Centaurs
 
 Ogres
   Ogres are huge, chunky creatures who are very strong and robust, but are not
-  nimble at all. Ogres mature almost as quickly as Humans. They possess a raw
-  talent for magic, but are poor at making use of magical devices.
+  nimble at all. They possess a raw talent for magic, but are poor at making
+  use of magical devices. Ogres mature almost as quickly as Humans.
 
   Their preferred methods of avoiding beatings are dodging and the use of
-  shields. Many Ogres find it natural to wield some large and blunt weapon.
-  (Countless lethal incidents have taught them to leave most edged weapons be.)
-  While all sophisticated forms of missile combat are too awkward for them, they
-  are good at throwing things, in particular boulders.
+  shields, but they can also use armours made from magical hides, since these
+  accommodate their large frames. Ogres are proficient at using all types of
+  melee weapons, yet all sophisticated forms of missile combat are too awkward
+  for them. They are, however, good at throwing things, in particular boulders.
 
 Trolls
   Trolls are monstrous creatures with powerful claws. They have thick, knobbly
@@ -1711,17 +1712,23 @@ Vine Stalkers
   spells' fuel with each voracious bite.
 
 Gnolls
-  Gnolls are a race of caniform humanoids hailing from the arid deserts and
-  grasslands of the east. With a variety of lurid tales told of them, others
-  avoid the Gnolls. Despite their isolation, Gnolls are unusually drawn to
-  the Dungeon.
+  Gnolls are a race of caniform humanoids originally hailing from the arid
+  deserts and grasslands of the east. In recent history they have become
+  unusually attracted to the Dungeon, establishing tribes around and even
+  inside of it. Unfortunately their long stay in the Dungeon has exposed their
+  somewhat fragile minds to excessive amounts of its magic.
 
-  Gnolls are quick to learn, picking up the basics of any skill within a
-  short period of time. Their attention wanes quickly, though, and they find it
-  more and more difficult to train a given skill the more practised they become
-  at it. Thus, Gnolls often prefer to dabble in a wide variety of fresh
-  and interesting skills. Their powerful noses indicate to them where treasures
-  lay hidden in the Dungeon.
+  On the one hand, their bizarrely altered brains now have incredible
+  proficiency at learning every skill. On the other, these same alterations
+  have rendered Gnolls incapable of selective learning. They learn all skills
+  equally at the same time, so it's hard for them to learn more about any one
+  thing.
+
+  In order to survive with this limitation, Gnolls use their universal
+  knowledge and excellent physical attributes of strength, intelligence, and
+  dexterity to take advantage of every resource they find in the Dungeon. They
+  also have powerful noses adapted to the Dungeon's scents, allowing them to
+  easily locate where treasures lay hidden.
 
 The Undead
 ========================================
@@ -2498,11 +2505,8 @@ will deselect it (except for ',' and '-', obviously).
 /
   Select all wands.
 
-|
+\|
   Select all staves.
-
-\\
-  Select all rods.
 
 !
   Select all potions.

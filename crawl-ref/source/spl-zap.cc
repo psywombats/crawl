@@ -73,6 +73,7 @@ static pair<spell_type, zap_type> _spl_zaps[] =
     { SPELL_VIRULENCE, ZAP_VIRULENCE },
     { SPELL_SAP_MAGIC, ZAP_SAP_MAGIC },
     { SPELL_DRAIN_MAGIC, ZAP_DRAIN_MAGIC },
+    { SPELL_HARPOON_SHOT, ZAP_HARPOON_SHOT},
 
     // These are all for zap -> spell lookup.
     { SPELL_QUICKSILVER_BOLT, ZAP_QUICKSILVER_BOLT },
@@ -85,6 +86,7 @@ static pair<spell_type, zap_type> _spl_zaps[] =
     { SPELL_CHILLING_BREATH, ZAP_BREATHE_FROST },
     { SPELL_ICEBLAST, ZAP_ICEBLAST },
     { SPELL_ACID_SPLASH, ZAP_BREATHE_ACID },
+    { SPELL_BORGNJORS_VILE_CLUTCH, ZAP_VILE_CLUTCH},
 };
 
 zap_type spell_to_zap(spell_type spell)

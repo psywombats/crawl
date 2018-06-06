@@ -10,6 +10,7 @@
 #include "cloud.h"
 #include "command.h"
 #include "coord.h"
+#include "describe.h"
 #include "directn.h"
 #include "dgn-height.h"
 #include "env.h"
@@ -24,19 +25,20 @@
 #include "nearby-danger.h"
 #include "options.h"
 #include "output.h"
-#include "process-desc.h"
 #include "prompt.h"
 #include "religion.h"
 #include "spl-book.h"
 #include "spl-cast.h"
 #include "spl-zap.h"
 #include "stash.h"
+#include "stringutil.h"
 #include "terrain.h"
 #include "tiledef-dngn.h"
 #include "tiledef-icons.h"
 #include "tiledef-main.h"
 #include "tilefont.h"
 #include "tilepick.h"
+#include "tiles-build-specific.h"
 #include "traps.h"
 #include "travel.h"
 #include "viewgeom.h"
@@ -106,6 +108,10 @@ void DungeonRegion::pack_buffers()
 
     if (m_vbuf.empty())
         return;
+
+    coord_def m_vbuf_sz = m_vbuf.size();
+    ASSERT(m_vbuf_sz.x == crawl_view.viewsz.x);
+    ASSERT(m_vbuf_sz.y == crawl_view.viewsz.y);
 
     screen_cell_t *vbuf_cell = m_vbuf;
     for (int y = 0; y < crawl_view.viewsz.y; ++y)
@@ -187,9 +193,11 @@ void DungeonRegion::render()
     }
 
     set_transform();
+    glmanager->set_scissor(0, 0, tile_iw, tile_ih);
     m_buf_dngn.draw();
     draw_minibars();
     m_buf_flash.draw();
+    glmanager->reset_scissor();
 
     FixedArray<tag_def, ENV_SHOW_DIAMETER, ENV_SHOW_DIAMETER> tag_show;
 
@@ -354,6 +362,11 @@ void DungeonRegion::on_resize()
     // TODO enne
 }
 
+bool DungeonRegion::inside(int x, int y)
+{
+    return x >= 0 && y >= 0 && x <= tile_iw && y <= tile_ih;
+}
+
 // FIXME: If the player is targeted, the game asks the player to target
 // something with the mouse, then targets the player anyway and treats
 // mouse click as if it hadn't come during targeting (moves the player
@@ -362,7 +375,7 @@ static void _add_targeting_commands(const coord_def& pos)
 {
     // Force targeting cursor back onto center to start off on a clean
     // slate.
-    macro_buf_add_cmd(CMD_TARGET_FIND_YOU);
+    macro_sendkeys_end_add_cmd(CMD_TARGET_FIND_YOU);
 
     const coord_def delta = pos - you.pos();
 
@@ -374,7 +387,7 @@ static void _add_targeting_commands(const coord_def& pos)
         cmd = CMD_TARGET_RIGHT;
 
     for (int i = 0; i < abs(delta.x); i++)
-        macro_buf_add_cmd(cmd);
+        macro_sendkeys_end_add_cmd(cmd);
 
     if (delta.y < 0)
         cmd = CMD_TARGET_UP;
@@ -382,9 +395,9 @@ static void _add_targeting_commands(const coord_def& pos)
         cmd = CMD_TARGET_DOWN;
 
     for (int i = 0; i < abs(delta.y); i++)
-        macro_buf_add_cmd(cmd);
+        macro_sendkeys_end_add_cmd(cmd);
 
-    macro_buf_add_cmd(CMD_TARGET_MOUSE_SELECT);
+    macro_sendkeys_end_add_cmd(CMD_TARGET_MOUSE_SELECT);
 }
 
 static bool _is_appropriate_spell(spell_type spell, const actor* target)
@@ -423,7 +436,7 @@ static bool _is_appropriate_spell(spell_type spell, const actor* target)
 static bool _is_appropriate_evokable(const item_def& item,
                                      const actor* target)
 {
-    if (!item_is_evokable(item, false, false, true))
+    if (!item_is_evokable(item, false))
         return false;
 
     // Only wands for now.
@@ -496,14 +509,15 @@ static bool _evoke_item_on_target(actor* target)
 
     if (item == nullptr)
         return false;
-
+#if TAG_MAJOR_VERSION == 34
     if (is_known_empty_wand(*item))
     {
         mpr("That wand is empty.");
         return false;
     }
+#endif
 
-    macro_buf_add_cmd(CMD_EVOKE);
+    macro_sendkeys_end_add_cmd(CMD_EVOKE);
     macro_buf_add(index_to_letter(item->link)); // Inventory letter.
     _add_targeting_commands(target->pos());
     return true;
@@ -586,7 +600,7 @@ static bool _cast_spell_on_target(actor* target)
         return true;
     }
 
-    macro_buf_add_cmd(CMD_FORCE_CAST_SPELL);
+    macro_sendkeys_end_add_cmd(CMD_FORCE_CAST_SPELL);
     macro_buf_add(letter);
 
     if (get_spell_flags(spell) & SPFLAG_TARGETING_MASK)
@@ -616,9 +630,9 @@ static bool _can_fire_item()
 
 static bool _handle_distant_monster(monster* mon, unsigned char mod)
 {
-    const bool shift = (mod & MOD_SHIFT);
-    const bool ctrl  = (mod & MOD_CTRL);
-    const bool alt   = (shift && ctrl || (mod & MOD_ALT));
+    const bool shift = (mod & TILES_MOD_SHIFT);
+    const bool ctrl  = (mod & TILES_MOD_CTRL);
+    const bool alt   = (shift && ctrl || (mod & TILES_MOD_ALT));
     const item_def* weapon = you.weapon();
 
     // Handle evoking items at monster.
@@ -630,7 +644,7 @@ static bool _handle_distant_monster(monster* mon, unsigned char mod)
         && (shift || weapon && is_range_weapon(*weapon)
                      && !mon->wont_attack()))
     {
-        macro_buf_add_cmd(CMD_FIRE);
+        macro_sendkeys_end_add_cmd(CMD_FIRE);
         _add_targeting_commands(mon->pos());
         return true;
     }
@@ -646,7 +660,7 @@ static bool _handle_distant_monster(monster* mon, unsigned char mod)
 
         if (dist > 1 && weapon && weapon_reach(*weapon) >= dist)
         {
-            macro_buf_add_cmd(CMD_EVOKE_WIELDED);
+            macro_sendkeys_end_add_cmd(CMD_EVOKE_WIELDED);
             _add_targeting_commands(mon->pos());
             return true;
         }
@@ -657,9 +671,9 @@ static bool _handle_distant_monster(monster* mon, unsigned char mod)
 
 static bool _handle_zap_player(MouseEvent &event)
 {
-    const bool shift = (event.mod & MOD_SHIFT);
-    const bool ctrl  = (event.mod & MOD_CTRL);
-    const bool alt   = (shift && ctrl || (event.mod & MOD_ALT));
+    const bool shift = (event.mod & TILES_MOD_SHIFT);
+    const bool ctrl  = (event.mod & TILES_MOD_CTRL);
+    const bool alt   = (shift && ctrl || (event.mod & TILES_MOD_ALT));
 
     if (alt && _have_appropriate_evokable(&you))
         return _evoke_item_on_target(&you);
@@ -714,12 +728,8 @@ int DungeonRegion::handle_mouse(MouseEvent &event)
         return 0;
 
 #ifdef TOUCH_UI
-    if (event.event == MouseEvent::PRESS
-        && (event.mod & MOD_CTRL)
-        && (event.button == MouseEvent::SCROLL_UP || event.button == MouseEvent::SCROLL_DOWN))
-    {
+    if (event.event == MouseEvent::WHEEL && (event.mod & TILES_MOD_CTRL))
         zoom(event.button == MouseEvent::SCROLL_UP);
-    }
 #endif
 
     if (mouse_control::current_mode() == MOUSE_MODE_NORMAL
@@ -736,8 +746,7 @@ int DungeonRegion::handle_mouse(MouseEvent &event)
         return CK_MOUSE_CLICK;
     }
 
-    if (mouse_control::current_mode() == MOUSE_MODE_NORMAL
-        || mouse_control::current_mode() == MOUSE_MODE_MACRO
+    if (mouse_control::current_mode() == MOUSE_MODE_MACRO
         || mouse_control::current_mode() == MOUSE_MODE_MORE
         || mouse_control::current_mode() == MOUSE_MODE_PROMPT
         || mouse_control::current_mode() == MOUSE_MODE_YESNO)
@@ -776,6 +785,9 @@ int DungeonRegion::handle_mouse(MouseEvent &event)
             tiles.add_text_tag(TAG_CELL_DESC, desc, gc);
     }
 
+    if (mouse_control::current_mode() == MOUSE_MODE_NORMAL)
+        return 0;
+
     if (!on_map)
         return 0;
 
@@ -806,7 +818,7 @@ int DungeonRegion::handle_mouse(MouseEvent &event)
         {
         case MouseEvent::LEFT:
         {
-            if ((event.mod & (MOD_CTRL | MOD_ALT)))
+            if ((event.mod & (TILES_MOD_CTRL | TILES_MOD_ALT)))
             {
                 _handle_zap_player(event);
                 // return either way -- everything else in this case
@@ -816,7 +828,7 @@ int DungeonRegion::handle_mouse(MouseEvent &event)
             }
 
             // if there's an item, pick it up, otherwise wait 1 turn
-            if (!(event.mod & MOD_SHIFT))
+            if (!(event.mod & TILES_MOD_SHIFT))
             {
                 const int o = you.visible_igrd(you.pos());
                 if (o == NON_ITEM)
@@ -860,7 +872,7 @@ int DungeonRegion::handle_mouse(MouseEvent &event)
             }
         }
         case MouseEvent::RIGHT:
-            if (!(event.mod & MOD_SHIFT))
+            if (!(event.mod & TILES_MOD_SHIFT))
                 return command_to_key(CMD_RESISTS_SCREEN); // Character overview.
             if (!you_worship(GOD_NO_GOD))
                 return command_to_key(CMD_DISPLAY_RELIGION); // Religion screen.
@@ -898,9 +910,9 @@ int tile_click_cell(const coord_def &gc, unsigned char mod)
             return CK_MOUSE_CMD;
     }
 
-    if ((mod & MOD_CTRL) && adjacent(you.pos(), gc))
+    if ((mod & TILES_MOD_CTRL) && adjacent(you.pos(), gc))
     {
-        const int cmd = click_travel(gc, mod & MOD_CTRL);
+        const int cmd = click_travel(gc, mod & TILES_MOD_CTRL);
         if (cmd != CK_MOUSE_CMD)
             process_command((command_type) cmd);
 
@@ -909,10 +921,10 @@ int tile_click_cell(const coord_def &gc, unsigned char mod)
 
     // Don't move if we've tried to fire/cast/evoke when there's nothing
     // available.
-    if (mod & (MOD_SHIFT | MOD_CTRL | MOD_ALT))
+    if (mod & (TILES_MOD_SHIFT | TILES_MOD_CTRL | TILES_MOD_ALT))
         return CK_MOUSE_CMD;
 
-    const int cmd = click_travel(gc, mod & MOD_CTRL);
+    const int cmd = click_travel(gc, mod & TILES_MOD_CTRL);
     if (cmd != CK_MOUSE_CMD)
         process_command((command_type) cmd);
 
@@ -1275,10 +1287,7 @@ bool DungeonRegion::update_alt_text(string &alt)
             inf.body << "\n" << stash;
     }
 
-    alt_desc_proc proc(crawl_view.msgsz.x, crawl_view.msgsz.y);
-    process_description<alt_desc_proc>(proc, inf);
-
-    proc.get_string(alt);
+    alt = process_description(inf);
 
     // Suppress floor description
     if (alt == "Floor.")
